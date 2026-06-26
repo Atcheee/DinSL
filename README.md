@@ -65,4 +65,6 @@ This is intentionally simple for local development and small deployments. For pr
 
 ## Deployment Notes
 
-Deploy the API and web app as separate services, set `NEXT_PUBLIC_API_BASE_URL` to the public API origin, and set `CORS_ORIGIN` to the web app origin. Keep the backend as the only caller of SL APIs so browser clients do not fan out directly to Trafiklab.
+For Vercel, deploy the Next.js app in `apps/web`. It includes same-origin API route handlers under `/api/*`, so the browser does not call SL/Trafiklab directly and no `NEXT_PUBLIC_API_BASE_URL` is required in production.
+
+If you deploy the Express API separately, set `NEXT_PUBLIC_API_BASE_URL` to that API origin and set `CORS_ORIGIN` to the web app origin.
