@@ -1,0 +1,26 @@
+export const formatDepartureTime = (displayTime?: string, expectedTime?: string) => {
+  if (displayTime) return displayTime;
+  if (!expectedTime) return "";
+
+  const expected = new Date(expectedTime);
+  if (Number.isNaN(expected.getTime())) return "";
+
+  const diffMinutes = Math.round((expected.getTime() - Date.now()) / 60_000);
+  if (diffMinutes <= 0) return "Nu";
+  if (diffMinutes <= 10) return `${diffMinutes} min`;
+
+  return new Intl.DateTimeFormat("sv-SE", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(expected);
+};
+
+export const formatClockTime = (value?: string) => {
+  if (!value) return undefined;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return undefined;
+  return new Intl.DateTimeFormat("sv-SE", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+};
