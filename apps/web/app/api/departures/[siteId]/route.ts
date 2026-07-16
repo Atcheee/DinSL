@@ -16,12 +16,17 @@ export async function GET(_request: Request, context: RouteContext) {
       return errorResponse("siteId must be numeric", "INVALID_SITE_ID", 400);
     }
 
-    const [site, departures] = await Promise.all([
+    const [site, departureResult] = await Promise.all([
       slClient.getSiteById(siteId),
       slClient.getDepartures(siteId)
     ]);
 
-    return NextResponse.json({ site: site ?? null, departures });
+    return NextResponse.json({
+      site: site ?? null,
+      departures: departureResult.value,
+      fetchedAt: new Date(departureResult.updatedAt).toISOString(),
+      isStale: departureResult.isStale
+    });
   } catch (error) {
     return handleRouteError(error);
   }

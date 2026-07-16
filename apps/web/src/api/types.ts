@@ -27,6 +27,8 @@ export type Departure = {
 export type DeparturesResponse = {
   site: Stop | null;
   departures: Departure[];
+  fetchedAt: string;
+  isStale?: boolean;
 };
 
 export type ApiErrorResponse = {

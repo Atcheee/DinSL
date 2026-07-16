@@ -8,7 +8,13 @@ import { apiClient } from "@/api/client";
 import { StopSearchResults } from "@/components/StopSearchResults";
 import { Command, CommandInput } from "@/components/ui/command";
 
-export function SearchBox() {
+export function SearchBox({
+  onSelect,
+  placeholder = "Sök exempelvis Slussen, Odenplan eller Älvsjö"
+}: {
+  onSelect?: (stop: Stop) => void;
+  placeholder?: string;
+} = {}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
 
@@ -19,7 +25,9 @@ export function SearchBox() {
   });
 
   const selectStop = (stop: Stop) => {
-    router.push(`/stop/${stop.id}`);
+    if (onSelect) onSelect(stop);
+    else router.push(`/stop/${stop.id}`);
+    setQuery("");
   };
 
   return (
@@ -27,7 +35,7 @@ export function SearchBox() {
       <CommandInput
         value={query}
         onValueChange={setQuery}
-        placeholder="Sök exempelvis Slussen, Odenplan eller Älvsjö"
+        placeholder={placeholder}
         aria-label="Sök hållplats"
       />
       <StopSearchResults stops={search.data ?? []} isLoading={search.isFetching} query={query} onSelect={selectStop} />

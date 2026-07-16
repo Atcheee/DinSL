@@ -24,6 +24,10 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 210 100% 38%;
     --radius: 0.5rem;
+    --success: 151 64% 34%;
+    --success-foreground: 0 0% 100%;
+    --warning: 43 96% 56%;
+    --warning-foreground: 222 47% 11%;
   }
 
   * {
@@ -33,4 +37,19 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+}
+
+@keyframes display-safe-shift {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(2px, 1px); }
+  50% { transform: translate(1px, 2px); }
+  75% { transform: translate(-1px, 1px); }
+}
+
+.display-safe-shift {
+  animation: display-safe-shift 180s steps(1, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .display-safe-shift { animation: none; }
 }

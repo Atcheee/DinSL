@@ -98,7 +98,7 @@ export const slClient = {
   },
 
   getDepartures: (siteId: string) =>
-    departuresCache.getOrSet(siteId, async () => {
+    departuresCache.getOrSetWithMetadata(siteId, async () => {
       const data = await fetchJson<SlDepartureResponse>(
         `${serverConfig.slTransportBaseUrl}/sites/${encodeURIComponent(siteId)}/departures`
       );

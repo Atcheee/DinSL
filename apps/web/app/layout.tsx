@@ -4,8 +4,8 @@ import { Providers } from "@/app/providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SL avgångar",
-  description: "Sök SL-hållplatser och se kommande avgångar i realtid."
+  title: "SL Commute Reliability",
+  description: "Ett tydligt lämna-nu-besked och läsbara SL-avgångsskärmar."
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
