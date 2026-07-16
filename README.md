@@ -1,70 +1,90 @@
-# SL Departures
+# SL Commute Reliability
 
-A fast, mobile-friendly full-stack web app for searching Stockholm SL stops and viewing real-time departures.
+Mobile-first Stockholm commuter dashboard and fullscreen public departure display. Dashboard saves one anonymous commute profile, calculates a clearly labeled leave-now estimate, and captures reliability observations. Public screens use server-only, long-lived display tokens.
 
-## APIs
+## Architecture
 
-The backend calls SL/Trafiklab public integration APIs directly:
+- `apps/web`: Next.js App Router UI, same-origin SL proxy, commute timing domain, local profile storage, and public display route.
+- `apps/api`: existing Express API for separately hosted deployments.
+- SL Transport: sites, lines, and current departures. This API is not treated as a journey planner.
+- `JourneyPlanner` interface: isolated seam for future SL Journey-planner v2 integration.
+- `DisplayRepository`: server interface currently backed by environment configuration; ready for a PostgreSQL implementation when managed displays need durable remote administration.
 
-- Stops/sites: `https://transport.integration.sl.se/v1/sites?expand=true`
-- Departures: `https://transport.integration.sl.se/v1/sites/{site_id}/departures`
-- Lines: `https://transport.integration.sl.se/v1/lines?transport_authority_id=1`
+Static site data caches for hours. Departures cache for 20 seconds with request coalescing, stale-while-revalidate fallback, upstream timeout handling, and automatic client refresh.
 
-The SL Transport API endpoints used here do not require an API key.
+## Privacy and retention
 
-## Local Development
+- Commute profile and manual observations stay in browser `localStorage`.
+- Observation records contain stop, line, event type, and timestamp; never precise location.
+- Nearby-stop lookup uses current coordinates in memory only. No location history is stored.
+- Local observation history is capped at 500 entries.
+- Managed display tokens remain server-side. Public display pages contain no account controls.
 
-Install dependencies:
+## Environment variables
+
+Copy `.env.example` to ignored `.env.local`.
+
+```bash
+SHADCNDESIGN_LICENSE_KEY=
+NEXT_PUBLIC_API_BASE_URL=
+DISPLAY_CONFIGS_JSON=
+```
+
+`SHADCNDESIGN_LICENSE_KEY` authenticates licensed Pro Blocks during development only. Never use a `NEXT_PUBLIC_` prefix.
+
+`NEXT_PUBLIC_API_BASE_URL` is optional. Leave blank to use Next.js same-origin API routes.
+
+`DISPLAY_CONFIGS_JSON` is a server-only JSON array:
+
+```json
+[
+  {
+    "id": "cafe-screen-1",
+    "token": "replace-with-a-long-random-token",
+    "siteId": "9192",
+    "venueName": "Café Central",
+    "preferredLines": ["13", "14"],
+    "refreshSeconds": 20,
+    "expiresAt": "2027-12-31T23:59:59Z",
+    "revokedAt": null
+  }
+]
+```
+
+Rotate or remove `token`, set `revokedAt`, or set `active` to `false` to revoke access. For multiple remotely managed screens, replace the environment repository with PostgreSQL while preserving the interface.
+
+## Local development
+
+Requires Node.js 20.9+ and pnpm 11.
 
 ```bash
 pnpm install
-```
-
-Run the web app and API together:
-
-```bash
 pnpm dev
 ```
 
-Default local URLs:
-
 - Web: `http://localhost:3000`
-- API: `http://localhost:8000`
-- API health: `http://localhost:8000/api/health`
+- Express API: `http://localhost:8000`
+- Display: `http://localhost:3000/display/<configured-token>`
 
-Build both apps:
+## Verification
 
 ```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm test:e2e
 pnpm build
 ```
 
-## Environment Variables
+Tests cover leave timing, midnight rollover, Stockholm DST offsets, stale data, cancellations, reliability aggregation, cache coalescing/SWR, and token expiry/revocation. Playwright covers saving a commute profile and opening a tokenized display on mobile and desktop Chromium.
 
-Backend (`apps/api/.env.example`):
+## Deployment
 
-```bash
-PORT=8000
-CORS_ORIGIN=http://localhost:3000
-```
+Deploy `apps/web` as Vercel project root, or deploy from repository root using existing Vercel monorepo settings. Add `DISPLAY_CONFIGS_JSON` as a sensitive server environment variable. `SHADCNDESIGN_LICENSE_KEY` is needed only if a remote build invokes the licensed registry CLI; committed component source does not require it at runtime.
 
-Frontend (`apps/web/.env.example`):
+The Express app can be deployed separately. Set `NEXT_PUBLIC_API_BASE_URL` to its origin and `CORS_ORIGIN` to the web URL.
 
-```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-```
+## API boundaries
 
-## Caching
-
-The API keeps lightweight in-memory caches to avoid unnecessary upstream traffic:
-
-- Sites: 6 hours
-- Lines: 6 hours
-- Departures: 20 seconds per site ID
-
-This is intentionally simple for local development and small deployments. For production, use a shared cache if you run multiple API instances.
-
-## Deployment Notes
-
-For Vercel, deploy the Next.js app in `apps/web`. It includes same-origin API route handlers under `/api/*`, so the browser does not call SL/Trafiklab directly and no `NEXT_PUBLIC_API_BASE_URL` is required in production.
-
-If you deploy the Express API separately, set `NEXT_PUBLIC_API_BASE_URL` to that API origin and set `CORS_ORIGIN` to the web app origin.
+- SL Transport endpoints: `https://transport.integration.sl.se/v1/sites?expand=true` and `/sites/{siteId}/departures`.
+- Full A-to-B routing belongs behind `JourneyPlanner` and should use official SL Journey-planner v2, not departure data.

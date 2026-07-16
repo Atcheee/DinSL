@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, Clock3, Radio, RefreshCw, WifiOff } from "lucide-react";
+import Image from "next/image";
 import QRCode from "qrcode";
 import { apiClient } from "@/api/client";
 import type { Display } from "@/domain/models";
@@ -92,7 +93,7 @@ export function PublicDisplay({ display }: { display: Display }) {
 
         <footer className="flex items-end justify-between gap-6 border-t border-white/20 pt-4">
           <p className="max-w-3xl text-[clamp(.75rem,1.1vw,1.1rem)] leading-relaxed text-white/55">Realtidsprognoser kan ändras. SL Commute Reliability visar avgångsdata, inte fullständig reseplanering.</p>
-          {qr ? <div className="flex shrink-0 items-center gap-3"><p className="hidden text-right text-sm font-semibold text-white/70 sm:block">Öppna på mobilen</p><img src={qr} alt="QR-kod till denna avgångsskärm" className="size-[clamp(4rem,7vw,7rem)] rounded-md bg-white p-1" /></div> : null}
+          {qr ? <div className="flex shrink-0 items-center gap-3"><p className="hidden text-right text-sm font-semibold text-white/70 sm:block">Öppna på mobilen</p><Image src={qr} alt="QR-kod till denna avgångsskärm" width={112} height={112} unoptimized className="size-[clamp(4rem,7vw,7rem)] rounded-md bg-white p-1" /></div> : null}
         </footer>
       </div>
     </main>

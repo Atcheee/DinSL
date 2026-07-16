@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { aggregateReliability } from "@/domain/reliability";
 import type { DepartureObservation, ObservationType } from "@/domain/models";
 
@@ -45,6 +45,6 @@ export function useObservations(profileId?: string) {
   };
 
   const profileObservations = observations.filter((item) => item.profileId === profileId);
-  const summary = useMemo(() => aggregateReliability(profileObservations), [profileObservations]);
+  const summary = aggregateReliability(profileObservations);
   return { observations: profileObservations, summary, addObservation };
 }

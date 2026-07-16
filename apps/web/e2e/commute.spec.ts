@@ -18,12 +18,12 @@ test("creates a commute profile and opens a tokenized display", async ({ page })
   });
 
   await page.goto("/");
-  await page.getByLabel("Sök hållplats").first().fill("Slussen");
+  await page.locator('input[aria-label="Sök hållplats"]').first().fill("Slussen");
   await page.getByRole("option", { name: /Slussen/ }).click();
   await page.getByLabel("Destination").fill("Kontoret");
   await page.getByLabel("Föredragna linjer").fill("13");
   await page.getByRole("button", { name: "Spara resa" }).click();
-  await expect(page.getByText("Sparad")).toBeVisible();
+  await expect(page.getByText("Sparad", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByText(/Gå om \d+ min/)).toBeVisible();
 

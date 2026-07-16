@@ -8,6 +8,10 @@ dist/
 *.log
 *.err.log
 
+.vercel/
+test-results/
+playwright-report/
+
 .env
 .env.local
 .env.*.local
