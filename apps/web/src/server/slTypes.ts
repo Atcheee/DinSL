@@ -1,6 +1,7 @@
 export type Stop = {
   id: string;
   name: string;
+  gid?: string;
   lat?: number;
   lon?: number;
   modes?: string[];
@@ -22,6 +23,7 @@ export type Departure = {
 
 export type SlSite = {
   id?: number | string;
+  gid?: number | string;
   name?: string;
   lat?: number;
   lon?: number;

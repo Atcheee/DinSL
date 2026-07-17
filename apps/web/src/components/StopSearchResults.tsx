@@ -1,19 +1,39 @@
 "use client";
 
 import { MapPin } from "lucide-react";
-import type { Stop } from "@/api/types";
+import type { NearbyStop, Stop } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 
 type StopSearchResultsProps = {
-  stops: Stop[];
+  stops: Array<Stop | NearbyStop>;
   isLoading: boolean;
   query: string;
   onSelect: (stop: Stop) => void;
+  mode?: "search" | "nearby";
+  error?: string | null;
 };
 
-export function StopSearchResults({ stops, isLoading, query, onSelect }: StopSearchResultsProps) {
-  if (query.trim().length < 2) {
+const hasDistance = (stop: Stop | NearbyStop): stop is NearbyStop =>
+  "distanceMeters" in stop && typeof stop.distanceMeters === "number";
+
+export function StopSearchResults({
+  stops,
+  isLoading,
+  query,
+  onSelect,
+  mode = "search",
+  error = null
+}: StopSearchResultsProps) {
+  if (error) {
+    return (
+      <CommandList>
+        <CommandEmpty>{error}</CommandEmpty>
+      </CommandList>
+    );
+  }
+
+  if (mode === "search" && query.trim().length < 2) {
     return (
       <CommandList>
         <CommandEmpty>Skriv minst två tecken.</CommandEmpty>
@@ -24,7 +44,15 @@ export function StopSearchResults({ stops, isLoading, query, onSelect }: StopSea
   if (isLoading) {
     return (
       <CommandList>
-        <CommandEmpty>Söker...</CommandEmpty>
+        <CommandEmpty>{mode === "nearby" ? "Hämtar närmaste hållplatser..." : "Söker..."}</CommandEmpty>
+      </CommandList>
+    );
+  }
+
+  if (mode === "nearby" && stops.length === 0) {
+    return (
+      <CommandList>
+        <CommandEmpty>Inga hållplatser nära dig hittades.</CommandEmpty>
       </CommandList>
     );
   }
@@ -32,7 +60,7 @@ export function StopSearchResults({ stops, isLoading, query, onSelect }: StopSea
   return (
     <CommandList>
       {stops.length === 0 ? <CommandEmpty>Inga hållplatser hittades.</CommandEmpty> : null}
-      <CommandGroup heading="Hållplatser">
+      <CommandGroup heading={mode === "nearby" ? "Närmast dig" : "Hållplatser"}>
         {stops.map((stop) => (
           <CommandItem key={stop.id} value={`${stop.name} ${stop.id}`} onSelect={() => onSelect(stop)}>
             <div className="flex w-full items-center justify-between gap-3">
@@ -41,9 +69,12 @@ export function StopSearchResults({ stops, isLoading, query, onSelect }: StopSea
                 <span className="truncate font-medium">{stop.name}</span>
               </div>
               <div className="flex shrink-0 items-center gap-2">
-                {stop.modes?.slice(0, 2).map((mode) => (
-                  <Badge key={mode} variant="secondary">
-                    {mode}
+                {hasDistance(stop) ? (
+                  <Badge variant="secondary">{Math.round(stop.distanceMeters)} m</Badge>
+                ) : null}
+                {stop.modes?.slice(0, 2).map((modeName) => (
+                  <Badge key={modeName} variant="secondary">
+                    {modeName}
                   </Badge>
                 ))}
                 <Badge variant="outline">{stop.id}</Badge>

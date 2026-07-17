@@ -59,3 +59,17 @@ test("reports disruption when every relevant departure is cancelled", () => {
   });
   assert.equal(decision.state, "disruption");
 });
+
+test("skips avoided lines when choosing the next departure", () => {
+  const decision = calculateLeaveDecision({
+    departures: [
+      departure("2026-07-16T08:10:00+02:00", { line: "4" }),
+      departure("2026-07-16T08:18:00+02:00", { line: "13", id: "d2" })
+    ],
+    timingRule: { walkingMinutes: 5, transferBufferMinutes: 2 },
+    avoidedLines: ["4"],
+    now: new Date("2026-07-16T08:00:00+02:00")
+  });
+  assert.equal(decision.state, "leave-in");
+  assert.equal(decision.state === "leave-in" ? decision.departure.line : "", "13");
+});

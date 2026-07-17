@@ -1,6 +1,7 @@
 export type Stop = {
   id: string;
   name: string;
+  gid?: string;
   lat?: number;
   lon?: number;
   modes?: string[];

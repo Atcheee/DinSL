@@ -1,9 +1,35 @@
 export type Stop = {
   id: string;
   name: string;
+  gid?: string;
   lat?: number;
   lon?: number;
   modes?: string[];
+};
+
+export type JourneyLeg = {
+  mode?: string;
+  line?: string;
+  originName: string;
+  destinationName: string;
+  departureTime?: string;
+  arrivalTime?: string;
+  durationSeconds?: number;
+  infos: string[];
+};
+
+export type JourneyOption = {
+  id: string;
+  durationSeconds: number;
+  interchanges: number;
+  wheelchairFriendly: boolean;
+  accessibilityNotes: string[];
+  legs: JourneyLeg[];
+};
+
+export type JourneysResponse = {
+  journeys: JourneyOption[];
+  fetchedAt: string;
 };
 
 export type NearbyStop = Stop & {

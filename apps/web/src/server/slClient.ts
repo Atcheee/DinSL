@@ -1,5 +1,6 @@
 import { TtlCache } from "./cache";
 import { serverConfig } from "./config";
+import { parseJsonPreservingLargeIntegers } from "./jsonPreserveLargeInts";
 import type { Departure, SlDepartureResponse, SlRawDeparture, SlSite, Stop } from "./slTypes";
 
 const sitesCache = new TtlCache<Stop[]>(serverConfig.cacheTtls.sitesMs);
@@ -15,7 +16,7 @@ export class UpstreamError extends Error {
   }
 }
 
-const fetchJson = async <T>(url: string): Promise<T> => {
+const fetchJson = async <T>(url: string, options?: { preserveLargeIntegers?: boolean }): Promise<T> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), serverConfig.requestTimeoutMs);
 
@@ -27,6 +28,10 @@ const fetchJson = async <T>(url: string): Promise<T> => {
 
     if (!response.ok) {
       throw new UpstreamError(`SL API returned ${response.status}`, 502, "SL_API_ERROR");
+    }
+
+    if (options?.preserveLargeIntegers) {
+      return parseJsonPreservingLargeIntegers<T>(await response.text());
     }
 
     return (await response.json()) as T;
@@ -41,12 +46,23 @@ const fetchJson = async <T>(url: string): Promise<T> => {
   }
 };
 
+const siteGidFromId = (siteId: string) => `9091001${siteId.padStart(9, "0")}`;
+
 const normalizeSite = (site: SlSite): Stop | undefined => {
   if (site.id === undefined || !site.name) return undefined;
 
+  const id = String(site.id);
+  // Prefer a string GID from precision-safe parsing; otherwise rebuild from site id
+  // (numeric GIDs from JSON.parse are already rounded past Number.MAX_SAFE_INTEGER).
+  const gid =
+    typeof site.gid === "string"
+      ? site.gid
+      : siteGidFromId(id);
+
   return {
-    id: String(site.id),
+    id,
     name: site.name,
+    gid,
     lat: typeof site.lat === "number" ? site.lat : undefined,
     lon: typeof site.lon === "number" ? site.lon : undefined,
     modes: []
@@ -88,7 +104,9 @@ const normalizeDeparture = (departure: SlRawDeparture, index: number): Departure
 export const slClient = {
   getSites: () =>
     sitesCache.getOrSet("sites", async () => {
-      const data = await fetchJson<SlSite[]>(`${serverConfig.slTransportBaseUrl}/sites?expand=true`);
+      const data = await fetchJson<SlSite[]>(`${serverConfig.slTransportBaseUrl}/sites?expand=true`, {
+        preserveLargeIntegers: true
+      });
       return data.map(normalizeSite).filter((site): site is Stop => Boolean(site));
     }),
 

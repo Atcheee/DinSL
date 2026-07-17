@@ -19,6 +19,7 @@ export function calculateLeaveDecision(input: {
   departures: Departure[];
   timingRule: TimingRule;
   preferredLines?: string[];
+  avoidedLines?: string[];
   now: Date;
   fetchedAt?: Date;
   staleAfterMs?: number;
@@ -31,7 +32,9 @@ export function calculateLeaveDecision(input: {
   }
 
   const preferred = new Set((input.preferredLines ?? []).map((line) => line.trim()).filter(Boolean));
+  const avoided = new Set((input.avoidedLines ?? []).map((line) => line.trim()).filter(Boolean));
   const relevant = departures
+    .filter((departure) => !avoided.has(departure.line))
     .filter((departure) => preferred.size === 0 || preferred.has(departure.line))
     .map((departure) => ({ departure, date: departureDate(departure) }))
     .filter((item): item is { departure: Departure; date: Date } => Boolean(item.date))
