@@ -24,3 +24,18 @@ export const formatClockTime = (value?: string) => {
     minute: "2-digit"
   }).format(date);
 };
+
+export const formatJourneyDuration = (seconds: number) => {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `${hours} h ${rest} min` : `${hours} h`;
+};
+
+export const formatJourneyClock = (value?: string) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
+};

@@ -8,7 +8,7 @@
     "start": "next start",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test src/domain/timing.test.ts src/domain/reliability.test.ts src/server/cache.test.ts src/server/jsonPreserveLargeInts.test.ts src/lib/shareProfile.test.ts",
+    "test": "tsx --test src/domain/timing.test.ts src/domain/reliability.test.ts src/server/cache.test.ts src/server/jsonPreserveLargeInts.test.ts src/lib/shareProfile.test.ts src/lib/journeyStorage.test.ts src/lib/journeyExport.test.ts",
     "test:e2e": "playwright test"
   },
   "dependencies": {

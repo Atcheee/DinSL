@@ -68,6 +68,21 @@ test("creates a commute profile and shares it via QR link", async ({ page }) => 
   await page.getByRole("button", { name: "Reseförslag" }).click();
   await expect(page.getByRole("heading", { name: "Reseförslag" })).toBeVisible();
   await expect(page.getByText("Hämtar reseförslag...").or(page.getByText(/min ·/))).toBeVisible();
+
+  await page.getByRole("link", { name: /Visa detaljer för resa/ }).click();
+  await expect(page).toHaveURL(/\/resa\/j1/);
+  await expect(page.getByRole("heading", { name: "Resedetaljer" })).toBeVisible();
+  await expect(page.getByText("Slussen → T-Centralen").first()).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Spara / öppna" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lägg till i kalender" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Google Kalender" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Google Maps" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Apple Maps" })).toBeVisible();
+
+  await page.getByRole("link", { name: "Tillbaka" }).click();
+  await expect(page).toHaveURL("/");
+  await expect(page.getByRole("heading", { name: "Reseförslag" })).toBeVisible();
+
   await page.reload();
   await expect(page.getByText(/Gå om \d+ min/)).toBeVisible();
 
@@ -83,7 +98,7 @@ test("creates a commute profile and shares it via QR link", async ({ page }) => 
   await expect(page.getByText("Länk kopierad")).toBeVisible();
 
   await page.goto(shareUrl!);
-  await expect(page.getByText("Slussen")).toBeVisible();
-  await expect(page.getByText("T-Centralen")).toBeVisible();
+  await expect(page.getByText("Slussen", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("T-Centralen", { exact: true }).first()).toBeVisible();
   await expect(page).not.toHaveURL(/[?&]share=/);
 });

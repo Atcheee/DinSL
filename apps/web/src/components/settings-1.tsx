@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
+  ChevronRight,
   Clock3,
   Copy,
   Plus,
@@ -17,6 +18,7 @@ import {
   X
 } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import QRCode from "qrcode";
 import type { JourneyOption, Stop } from "@/api/types";
 import { apiClient } from "@/api/client";
@@ -50,7 +52,9 @@ import {
 } from "@/domain/models";
 import { useCommuteProfile } from "@/hooks/useCommuteProfile";
 import { useObservations } from "@/hooks/useObservations";
+import { saveJourneySnapshot } from "@/lib/journeyStorage";
 import { buildShareUrl } from "@/lib/shareProfile";
+import { formatJourneyClock, formatJourneyDuration } from "@/lib/time";
 
 const isPlannerStop = (stop: ProfileStop) => !stop.id.startsWith("label:");
 
@@ -59,21 +63,6 @@ const toProfileStop = (stop: Stop): ProfileStop => ({
   name: stop.name,
   gid: stop.gid
 });
-
-const formatDuration = (seconds: number) => {
-  const minutes = Math.max(1, Math.round(seconds / 60));
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  return rest ? `${hours} h ${rest} min` : `${hours} h`;
-};
-
-const formatClock = (value?: string) => {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleTimeString("sv-SE", { hour: "2-digit", minute: "2-digit" });
-};
 
 const parseLines = (value: string) => value.split(",").map((line) => line.trim()).filter(Boolean);
 
@@ -312,28 +301,43 @@ function JourneyOptionCard({
   journey: JourneyOption;
   preferWheelchair: boolean;
 }) {
-  const firstDeparture = formatClock(journey.legs[0]?.departureTime);
-  const lastArrival = formatClock(journey.legs[journey.legs.length - 1]?.arrivalTime);
+  const firstDeparture = formatJourneyClock(journey.legs[0]?.departureTime);
+  const lastArrival = formatJourneyClock(journey.legs[journey.legs.length - 1]?.arrivalTime);
+  const timeLabel =
+    firstDeparture && lastArrival
+      ? `${firstDeparture} – ${lastArrival}`
+      : formatJourneyDuration(journey.durationSeconds);
 
   return (
-    <div className="rounded-md border p-4">
+    <Link
+      href={`/resa/${encodeURIComponent(journey.id)}`}
+      onClick={() => saveJourneySnapshot(journey)}
+      className="block rounded-md border p-4 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label={`Visa detaljer för resa ${timeLabel}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-semibold">
-            {firstDeparture && lastArrival ? `${firstDeparture} – ${lastArrival}` : formatDuration(journey.durationSeconds)}
-          </p>
+          <p className="font-semibold">{timeLabel}</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            {formatDuration(journey.durationSeconds)} · {journey.interchanges === 0 ? "Inga byten" : `${journey.interchanges} byte`}
+            {formatJourneyDuration(journey.durationSeconds)} ·{" "}
+            {journey.interchanges === 0
+              ? "Inga byten"
+              : journey.interchanges === 1
+                ? "1 byte"
+                : `${journey.interchanges} byten`}
           </p>
         </div>
-        <Badge variant={journey.wheelchairFriendly ? "secondary" : "outline"}>
-          <Accessibility className="size-3.5" aria-hidden="true" />
-          {journey.wheelchairFriendly
-            ? preferWheelchair
-              ? "Inga kända tillgänglighetshinder"
-              : "Inga hissvarningar"
-            : "Tillgänglighetspåverkan"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={journey.wheelchairFriendly ? "secondary" : "outline"}>
+            <Accessibility className="size-3.5" aria-hidden="true" />
+            {journey.wheelchairFriendly
+              ? preferWheelchair
+                ? "Inga kända tillgänglighetshinder"
+                : "Inga hissvarningar"
+              : "Tillgänglighetspåverkan"}
+          </Badge>
+          <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+        </div>
       </div>
       <div className="mt-4 space-y-2">
         {journey.legs.map((leg, index) => (
@@ -354,7 +358,7 @@ function JourneyOptionCard({
           ))}
         </div>
       ) : null}
-    </div>
+    </Link>
   );
 }
 
@@ -866,7 +870,7 @@ export function Settings1() {
               <TrainFront className="mb-4 size-6 text-primary" aria-hidden="true" />
               <p className="font-semibold">Så fungerar det</p>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Gå-nu bygger på avgångar, gångtid och marginal. Reseförslag kommer från SL Journey Planner utifrån dina
+                Gå-nu bygger på avgångar, gångtid och marginal. Reseförslag kommer från SL:s reseplanerare utifrån dina
                 trafikslag och preferenser. Tillgänglighet visar kända hiss- och anläggningsstörningar.
               </p>
             </CardContent>
