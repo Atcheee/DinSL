@@ -66,8 +66,8 @@ test("creates a commute profile and shares it via QR link", async ({ page }) => 
   await page.getByRole("option", { name: /T-Centralen/ }).click();
   await page.getByLabel("Föredragna linjer").fill("13");
   await page.getByRole("button", { name: "Reseförslag" }).click();
-  await expect(page.getByText("Sparad", { exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Reseförslag" })).toBeVisible();
+  await expect(page.getByText("Hämtar reseförslag...").or(page.getByText(/min ·/))).toBeVisible();
   await page.reload();
   await expect(page.getByText(/Gå om \d+ min/)).toBeVisible();
 

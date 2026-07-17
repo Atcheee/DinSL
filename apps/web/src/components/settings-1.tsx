@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Accessibility,
@@ -252,7 +252,7 @@ function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
 
   if (!destination) {
     return (
-      <section className="space-y-4" aria-labelledby="journeys-heading">
+      <section className="space-y-4 scroll-mt-4" aria-labelledby="journeys-heading">
         <div>
           <h2 id="journeys-heading" className="text-xl font-semibold tracking-tight">
             Reseförslag
@@ -273,7 +273,7 @@ function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
         : `via ${viaStops.map((stop) => stop.name).join(" · ")}`;
 
   return (
-    <section className="space-y-4" aria-labelledby="journeys-heading">
+    <section className="space-y-4 scroll-mt-4" aria-labelledby="journeys-heading">
       <div>
         <h2 id="journeys-heading" className="text-xl font-semibold tracking-tight">
           Reseförslag
@@ -291,7 +291,9 @@ function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
           {journeys.isError ? <p className="text-sm text-destructive">{journeys.error.message}</p> : null}
           {!journeys.isFetching && journeys.data && filteredJourneys.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Inga förslag kvar efter att undvikna linjer filtrerats bort.
+              {profile.avoidedLines.some((line) => line.trim())
+                ? "Inga förslag kvar efter att undvikna linjer filtrerats bort."
+                : "Inga reseförslag hittades just nu. Prova andra hållplatser eller preferenser."}
             </p>
           ) : null}
           {filteredJourneys.map((journey) => (
@@ -391,7 +393,6 @@ export function Settings1() {
     profile,
     setProfile,
     hydrated,
-    importedFromShare,
     pendingShare,
     shareImportError,
     acceptPendingShare,
@@ -408,11 +409,11 @@ export function Settings1() {
   const [wheelchairAccessible, setWheelchairAccessible] = useState(false);
   const [walkingMinutes, setWalkingMinutes] = useState(7);
   const [transferBufferMinutes, setTransferBufferMinutes] = useState(3);
-  const [saved, setSaved] = useState(false);
   const [shareQr, setShareQr] = useState<string>();
   const [shareUrl, setShareUrl] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const [addingVia, setAddingVia] = useState(false);
+  const shouldScrollToJourneys = useRef(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -430,11 +431,13 @@ export function Settings1() {
   }, [profile]);
 
   useEffect(() => {
-    if (!importedFromShare) return;
-    setSaved(true);
-    const timer = window.setTimeout(() => setSaved(false), 2000);
-    return () => window.clearTimeout(timer);
-  }, [importedFromShare]);
+    if (!profile || !shouldScrollToJourneys.current) return;
+    shouldScrollToJourneys.current = false;
+    // Wait a frame so JourneySuggestions is in the DOM after profile mounts.
+    window.requestAnimationFrame(() => {
+      document.getElementById("journeys-heading")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [profile]);
 
   useEffect(() => {
     if (!profile) {
@@ -493,6 +496,7 @@ export function Settings1() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!originStop || !destinationStop) return;
+    shouldScrollToJourneys.current = true;
     setProfile(
       newProfile({
         current: profile,
@@ -508,8 +512,6 @@ export function Settings1() {
         transferBufferMinutes
       })
     );
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
   };
 
   const copyShareLink = async () => {
@@ -750,12 +752,7 @@ export function Settings1() {
                 </Field>
               </div>
             </CardContent>
-            <CardFooter className="justify-end gap-3 border-t pt-6">
-              {saved ? (
-                <span className="flex items-center gap-1 text-sm font-medium text-[hsl(var(--success))]">
-                  <Check className="size-4" /> Sparad
-                </span>
-              ) : null}
+            <CardFooter className="justify-end border-t pt-6">
               <Button type="submit" disabled={!hydrated || !originStop || !destinationStop}>
                 <ArrowRight className="size-4" /> Reseförslag
               </Button>

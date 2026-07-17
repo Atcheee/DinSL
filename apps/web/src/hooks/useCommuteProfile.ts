@@ -88,12 +88,16 @@ const readStoredProfile = (): CommuteProfile | null => {
 };
 
 const persistProfile = (next: CommuteProfile | null) => {
-  if (next) {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
-  } else {
-    window.localStorage.removeItem(STORAGE_KEY);
-    window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+  try {
+    if (next) {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(LEGACY_STORAGE_KEY);
+    }
+  } catch {
+    // Private mode / quota — keep in-memory profile working without crashing submit.
   }
 };
 
