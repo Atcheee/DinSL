@@ -1,3 +1,4 @@
+import { ModeToggle } from "@/components/mode-toggle";
 import { Settings1 } from "@/components/settings-1";
 import { Badge } from "@/components/ui/badge";
 
@@ -13,7 +14,10 @@ export default function HomePage() {
               Ett tydligt besked utifrån din station, gångtid och aktuella avgångar.
             </p>
           </div>
-          <p className="text-sm font-medium text-muted-foreground">Stockholm · Realtidsläge</p>
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-medium text-muted-foreground">Stockholm · Realtidsläge</p>
+            <ModeToggle />
+          </div>
         </div>
 
         <Settings1 />
