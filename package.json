@@ -1,5 +1,5 @@
 {
-  "name": "sl-departures",
+  "name": "dinsl",
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "scripts": {
@@ -7,8 +7,8 @@
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "pnpm -r lint",
-    "test": "pnpm --filter @sl-departures/web test",
-    "test:e2e": "pnpm --filter @sl-departures/web test:e2e"
+    "test": "pnpm --filter @dinsl/web test",
+    "test:e2e": "pnpm --filter @dinsl/web test:e2e"
   },
   "devDependencies": {
     "typescript": "^5.8.3"

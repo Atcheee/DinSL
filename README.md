@@ -1,4 +1,4 @@
-# SL Commute Reliability
+# DinSL
 
 Mobile-first Stockholm commuter dashboard. Dashboard saves one anonymous commute profile, calculates a clearly labeled leave-now estimate, captures reliability observations, and can share trip settings via QR code.
 

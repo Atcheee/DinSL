@@ -1,5 +1,5 @@
 {
-  "name": "@sl-departures/api",
+  "name": "@dinsl/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",

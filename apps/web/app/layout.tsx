@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 import { Providers } from "@/app/providers";
 import "./globals.css";
 
-const siteUrl = "https://sl-tider.vercel.app";
-const siteName = "SL Tider";
-const title = "SL Tider – Hinner du nästa? Realtidsavgångar i Stockholm";
+const siteUrl = "https://dinsl.vercel.app";
+const siteName = "DinSL";
+const title = "DinSL – Hinner du nästa? Realtidsavgångar i Stockholm";
 const description =
-  "SL Tider ger dig ett tydligt lämna-nu-besked utifrån din hållplats, gångtid och aktuella SL-avgångar. Se realtidsskärmar och planera pendlingen i Stockholm.";
+  "DinSL ger dig ett tydligt lämna-nu-besked utifrån din hållplats, gångtid och aktuella SL-avgångar. Se realtidsskärmar och planera pendlingen i Stockholm.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     "hållplats",
     "avgångsskärm",
     "lämna nu",
-    "SL Tider"
+    "DinSL"
   ],
   authors: [{ name: siteName, url: siteUrl }],
   creator: siteName,

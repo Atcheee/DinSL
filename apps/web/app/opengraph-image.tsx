@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const alt = "SL Tider – Hinner du nästa? Realtidsavgångar i Stockholm";
+export const alt = "DinSL – Hinner du nästa? Realtidsavgångar i Stockholm";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -29,7 +29,7 @@ export default function Image() {
             fontWeight: 600
           }}
         >
-          SL Tider
+          DinSL
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div style={{ display: "flex", fontSize: 72, fontWeight: 700, lineHeight: 1.05 }}>
@@ -48,7 +48,7 @@ export default function Image() {
           </div>
         </div>
         <div style={{ display: "flex", fontSize: 24, color: "rgba(255,255,255,0.55)" }}>
-          sl-tider.vercel.app
+          dinsl.vercel.app
         </div>
       </div>
     ),

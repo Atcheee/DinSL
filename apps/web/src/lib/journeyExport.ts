@@ -44,11 +44,11 @@ export function buildIcsContent(journey: JourneyOption, now = new Date()): strin
   const end = journeyEndTime(journey);
   if (!start || !end) return null;
 
-  const uid = `${journey.id}@sl-tider`;
+  const uid = `${journey.id}@dinsl`;
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//SL Tider//Journey//SV",
+    "PRODID:-//DinSL//Journey//SV",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH",
     "BEGIN:VEVENT",

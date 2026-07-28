@@ -6,6 +6,6 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/"
     },
-    sitemap: "https://sl-tider.vercel.app/sitemap.xml"
+    sitemap: "https://dinsl.vercel.app/sitemap.xml"
   };
 }

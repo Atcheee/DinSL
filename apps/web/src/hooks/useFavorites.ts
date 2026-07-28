@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Stop } from "@/api/types";
 
-const STORAGE_KEY = "sl-departures:favorites";
+const STORAGE_KEY = "dinsl:favorites";
 
 type FavoriteStop = Pick<Stop, "id" | "name">;
 

@@ -1,6 +1,6 @@
 import type { JourneyLeg, JourneyOption } from "@/api/types";
 
-const STORAGE_PREFIX = "sl-tider:journey:";
+const STORAGE_PREFIX = "dinsl:journey:";
 
 const storageKey = (id: string) => `${STORAGE_PREFIX}${id}`;
 

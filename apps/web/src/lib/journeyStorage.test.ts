@@ -59,10 +59,10 @@ test("round-trips a journey snapshot through sessionStorage", () => {
 test("returns null for missing or invalid snapshots", () => {
   assert.equal(loadJourneySnapshot("missing"), null);
 
-  sessionStorage.setItem("sl-tider:journey:bad", "{not-json");
+  sessionStorage.setItem("dinsl:journey:bad", "{not-json");
   assert.equal(loadJourneySnapshot("bad"), null);
 
-  sessionStorage.setItem("sl-tider:journey:empty-legs", JSON.stringify({ ...sampleJourney(), legs: [] }));
+  sessionStorage.setItem("dinsl:journey:empty-legs", JSON.stringify({ ...sampleJourney(), legs: [] }));
   assert.equal(loadJourneySnapshot("empty-legs"), null);
 });
 
