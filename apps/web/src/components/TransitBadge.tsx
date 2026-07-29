@@ -25,10 +25,12 @@ const MODE_ICONS: Record<TransitKind, LucideIcon> = {
 export function TransitBadge({
   mode,
   line,
+  compact = false,
   className
 }: {
   mode?: string;
   line?: string;
+  compact?: boolean;
   className?: string;
 }) {
   const appearance = getTransitAppearance(mode, line);
@@ -48,7 +50,7 @@ export function TransitBadge({
       aria-label={appearance.label}
     >
       <Icon className="size-3.5 shrink-0" strokeWidth={2.25} aria-hidden="true" />
-      <span>{appearance.label}</span>
+      <span>{compact && line ? line : appearance.label}</span>
     </Badge>
   );
 }

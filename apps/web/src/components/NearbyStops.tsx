@@ -19,20 +19,20 @@ export function NearbyStops() {
   });
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="h-full">
+      <CardHeader className="p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-1.5">
-            <CardTitle>Nära dig</CardTitle>
+            <CardTitle className="text-lg">Nära dig</CardTitle>
             <CardDescription>Plats används bara när du väljer att söka nära dig.</CardDescription>
           </div>
-          <Button onClick={requestLocation} disabled={isLocating}>
+          <Button size="sm" onClick={requestLocation} disabled={isLocating}>
             <LocateFixed data-icon="inline-start" />
             {isLocating ? "Hämtar plats" : "Hitta nära"}
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5 pb-5">
         {error ? <ErrorState message={error} /> : null}
         {nearby.isError ? <ErrorState message={nearby.error.message} /> : null}
         {nearby.isFetching ? (

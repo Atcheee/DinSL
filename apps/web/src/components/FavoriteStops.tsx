@@ -10,12 +10,12 @@ export function FavoriteStops() {
   const { favorites } = useFavorites();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Favoriter</CardTitle>
+    <Card className="h-full">
+      <CardHeader className="p-5">
+        <CardTitle className="text-lg">Favoriter</CardTitle>
         <CardDescription>Sparade hållplatser finns kvar i den här webbläsaren.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-5 pb-5">
         {favorites.length === 0 ? (
           <p className="text-sm text-muted-foreground">Inga favoriter sparade ännu.</p>
         ) : (

@@ -21,6 +21,9 @@ const hasDistance = (stop: Stop | NearbyStop): stop is NearbyStop =>
 const modeBadgeLabel = (modeName: string) =>
   TRANSPORT_MODE_LABELS[modeName as TransportMode] ?? modeName;
 
+const resultsClassName =
+  "absolute left-0 right-0 top-full z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border bg-popover p-1 shadow-xl";
+
 export function StopSearchResults({
   stops,
   isLoading,
@@ -31,23 +34,19 @@ export function StopSearchResults({
 }: StopSearchResultsProps) {
   if (error) {
     return (
-      <CommandList>
+      <CommandList className={resultsClassName}>
         <CommandEmpty>{error}</CommandEmpty>
       </CommandList>
     );
   }
 
   if (mode === "search" && query.trim().length < 2) {
-    return (
-      <CommandList>
-        <CommandEmpty>Skriv minst två tecken.</CommandEmpty>
-      </CommandList>
-    );
+    return null;
   }
 
   if (isLoading) {
     return (
-      <CommandList>
+      <CommandList className={resultsClassName}>
         <CommandEmpty>{mode === "nearby" ? "Hämtar närmaste hållplatser..." : "Söker..."}</CommandEmpty>
       </CommandList>
     );
@@ -55,14 +54,14 @@ export function StopSearchResults({
 
   if (mode === "nearby" && stops.length === 0) {
     return (
-      <CommandList>
+      <CommandList className={resultsClassName}>
         <CommandEmpty>Inga hållplatser nära dig hittades.</CommandEmpty>
       </CommandList>
     );
   }
 
   return (
-    <CommandList>
+    <CommandList className={resultsClassName}>
       {stops.length === 0 ? <CommandEmpty>Inga hållplatser hittades.</CommandEmpty> : null}
       <CommandGroup heading={mode === "nearby" ? "Närmast dig" : "Hållplatser"}>
         {stops.map((stop) => (
@@ -77,7 +76,7 @@ export function StopSearchResults({
                   <Badge variant="secondary">{Math.round(stop.distanceMeters)} m</Badge>
                 ) : null}
                 {stop.modes?.slice(0, 2).map((modeName) => (
-                  <Badge key={modeName} variant="secondary">
+                  <Badge key={modeName} variant="secondary" className="hidden sm:inline-flex">
                     {modeBadgeLabel(modeName)}
                   </Badge>
                 ))}

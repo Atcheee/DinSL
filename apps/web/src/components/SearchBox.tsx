@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Command as CommandPrimitive } from "cmdk";
 import { LocateFixed, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { NearbyStop, Stop } from "@/api/types";
 import { apiClient } from "@/api/client";
 import { StopSearchResults } from "@/components/StopSearchResults";
@@ -16,21 +16,59 @@ import { cn } from "@/lib/utils";
 export function SearchBox({
   onSelect,
   placeholder = "Sök exempelvis Slussen, Odenplan eller Älvsjö",
-  enableNearby = false
+  enableNearby = false,
+  storageKey,
+  clearOnSelect = true
 }: {
   onSelect?: (stop: Stop) => void;
   placeholder?: string;
   enableNearby?: boolean;
+  storageKey?: string;
+  clearOnSelect?: boolean;
 } = {}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [nearbyMode, setNearbyMode] = useState(false);
+  const [storageRestored, setStorageRestored] = useState(false);
   const { coordinates, error: geoError, isLocating, requestLocation } = useGeolocation();
 
+  useEffect(() => {
+    if (!storageKey) {
+      setStorageRestored(true);
+      return;
+    }
+
+    try {
+      setQuery(window.sessionStorage.getItem(storageKey) ?? "");
+    } catch {
+      // Storage can be unavailable in private browsing; keep the in-memory value.
+    } finally {
+      setStorageRestored(true);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || !storageRestored) return;
+    try {
+      window.sessionStorage.setItem(storageKey, query);
+    } catch {
+      // Keep search usable when storage is unavailable.
+    }
+  }, [query, storageKey, storageRestored]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setDebouncedQuery(query.trim());
+    }, 120);
+
+    return () => window.clearTimeout(timeout);
+  }, [query]);
+
   const search = useQuery({
-    queryKey: ["stops", "search", query],
-    queryFn: () => apiClient.searchStops(query),
-    enabled: !nearbyMode && query.trim().length >= 2
+    queryKey: ["stops", "search", debouncedQuery],
+    queryFn: () => apiClient.searchStops(debouncedQuery),
+    enabled: !nearbyMode && debouncedQuery.length >= 2
   });
 
   const nearby = useQuery({
@@ -42,7 +80,7 @@ export function SearchBox({
   const selectStop = (stop: Stop) => {
     if (onSelect) onSelect(stop);
     else router.push(`/stop/${stop.id}`);
-    setQuery("");
+    if (clearOnSelect) setQuery("");
     setNearbyMode(false);
   };
 
@@ -58,12 +96,13 @@ export function SearchBox({
   };
 
   const stops: Array<Stop | NearbyStop> = nearbyMode ? (nearby.data ?? []) : (search.data ?? []);
-  const isLoading = nearbyMode ? isLocating || nearby.isFetching : search.isFetching;
+  const isWaitingForSearch = query.trim().length >= 2 && query.trim() !== debouncedQuery;
+  const isLoading = nearbyMode ? isLocating || nearby.isFetching : isWaitingForSearch || search.isFetching;
   const errorMessage = nearbyMode ? geoError ?? (nearby.isError ? nearby.error.message : null) : null;
 
   return (
-    <Command shouldFilter={false} className="rounded-lg border">
-      <div className="flex items-center gap-1 border-b px-3" cmdk-input-wrapper="">
+    <Command shouldFilter={false} className="relative overflow-visible rounded-lg border bg-popover">
+      <div className="flex items-center gap-1 px-3" cmdk-input-wrapper="">
         <Search className="mr-1 size-4 shrink-0 opacity-50" aria-hidden="true" />
         <CommandPrimitive.Input
           value={query}

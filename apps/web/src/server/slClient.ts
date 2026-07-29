@@ -16,14 +16,21 @@ export class UpstreamError extends Error {
   }
 }
 
-const fetchJson = async <T>(url: string, options?: { preserveLargeIntegers?: boolean }): Promise<T> => {
+const fetchJson = async <T>(
+  url: string,
+  options?: { preserveLargeIntegers?: boolean; revalidateSeconds?: number }
+): Promise<T> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), serverConfig.requestTimeoutMs);
 
   try {
     const response = await fetch(url, {
       headers: { accept: "application/json" },
-      signal: controller.signal
+      signal: controller.signal,
+      next:
+        options?.revalidateSeconds === undefined
+          ? undefined
+          : { revalidate: options.revalidateSeconds }
     });
 
     if (!response.ok) {
@@ -123,8 +130,9 @@ const normalizeDeparture = (departure: SlRawDeparture, index: number): Departure
 export const slClient = {
   getSites: () =>
     sitesCache.getOrSet("sites", async () => {
-      const data = await fetchJson<SlSite[]>(`${serverConfig.slTransportBaseUrl}/sites?expand=true`, {
-        preserveLargeIntegers: true
+      const data = await fetchJson<SlSite[]>(`${serverConfig.slTransportBaseUrl}/sites`, {
+        preserveLargeIntegers: true,
+        revalidateSeconds: serverConfig.cacheTtls.sitesMs / 1000
       });
       return data.map(normalizeSite).filter((site): site is Stop => Boolean(site));
     }),

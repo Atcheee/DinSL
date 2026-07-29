@@ -76,6 +76,55 @@ type JourneySearchSelection = {
   time: string;
 };
 
+type PlannerDraft = {
+  originStop: Stop | null;
+  destinationStop: ProfileStop | null;
+  viaStops: ProfileStop[];
+  preferredLines: string;
+  avoidedLines: string;
+  preferredModes: TransportMode[];
+  routePreference: RoutePreference;
+  wheelchairAccessible: boolean;
+  journeySearchMode: JourneySearchMode;
+  journeyDate: string;
+  journeyTime: string;
+  journeySearch: JourneySearchSelection;
+  walkingMinutes: number;
+  transferBufferMinutes: number;
+};
+
+const PLANNER_DRAFT_STORAGE_KEY = "dinsl:planner-draft:v1";
+const DEPARTURES_SEARCH_STORAGE_KEY = "dinsl:departures-search:v1";
+
+const readPlannerDraft = (): PlannerDraft | null => {
+  try {
+    const raw = window.sessionStorage.getItem(PLANNER_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw) as PlannerDraft;
+    if (
+      !Array.isArray(draft.viaStops) ||
+      !Array.isArray(draft.preferredModes) ||
+      typeof draft.preferredLines !== "string" ||
+      typeof draft.avoidedLines !== "string" ||
+      typeof draft.walkingMinutes !== "number" ||
+      typeof draft.transferBufferMinutes !== "number"
+    ) {
+      return null;
+    }
+    return draft;
+  } catch {
+    return null;
+  }
+};
+
+const persistPlannerDraft = (draft: PlannerDraft) => {
+  try {
+    window.sessionStorage.setItem(PLANNER_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+  } catch {
+    // Keep the form working when storage is unavailable.
+  }
+};
+
 const localDateValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -238,11 +287,11 @@ function DecisionCard({ profile }: { profile: CommuteProfile | null }) {
         : "bg-primary text-primary-foreground";
 
   return (
-    <Card className="overflow-hidden border-0 shadow-xl shadow-primary/10" aria-live="polite">
-      <CardContent className={`p-6 sm:p-8 ${tone}`}>
+    <Card className="flex flex-col overflow-hidden border-0 shadow-lg shadow-primary/10 xl:h-96" aria-live="polite">
+      <CardContent className={`flex-1 p-5 sm:p-6 ${tone}`}>
         <div className="flex items-start justify-between gap-5">
           <div className="min-w-0">
-            <div className="mb-6 flex flex-wrap items-center gap-2 text-sm font-medium opacity-80">
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-sm font-medium opacity-80">
               <Radio className="size-4" aria-hidden="true" />
               {profile ? `${profile.originStop.name} till ${destinationName}` : "Nästa resa"}
               {profile?.wheelchairAccessible ? (
@@ -252,7 +301,7 @@ function DecisionCard({ profile }: { profile: CommuteProfile | null }) {
                 </Badge>
               ) : null}
             </div>
-            <p className="text-4xl font-bold tracking-tight sm:text-6xl">{decision.label}</p>
+            <p className="text-3xl font-bold tracking-tight sm:text-5xl">{decision.label}</p>
             <p className="mt-3 max-w-xl text-sm font-medium opacity-85 sm:text-base">{decision.detail}</p>
           </div>
           {decision.state === "disruption" || decision.state === "stale" ? (
@@ -262,7 +311,7 @@ function DecisionCard({ profile }: { profile: CommuteProfile | null }) {
           )}
         </div>
         {currentDeparture ? (
-          <div className="mt-7 flex flex-wrap items-center gap-2 border-t border-current/20 pt-5">
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-current/20 pt-4">
             <Badge className="border-current/20 bg-background/15 text-inherit hover:bg-background/15">Linje {currentDeparture.line}</Badge>
             {currentDeparture.platform ? <span className="text-sm font-medium">Läge {currentDeparture.platform}</span> : null}
             <span className="text-sm opacity-75">Uppskattning från aktuell avgångsdata</span>
@@ -270,7 +319,7 @@ function DecisionCard({ profile }: { profile: CommuteProfile | null }) {
         ) : null}
       </CardContent>
       {profile ? (
-        <CardFooter className="flex flex-col items-stretch gap-4 border-t bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+        <CardFooter className="flex flex-col items-stretch gap-3 border-t bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-medium">Stämmer inte prognosen?</p>
             <p className="text-xs text-muted-foreground">Sparas lokalt utan exakt position. {summary.totalObservations} observationer.</p>
@@ -591,7 +640,7 @@ function SelectedStopChip({
   );
 }
 
-export function Settings1() {
+export function Settings1({ view = "planner" }: { view?: "planner" | "departures" }) {
   const {
     profile,
     setProfile,
@@ -624,10 +673,49 @@ export function Settings1() {
   const [shareUrl, setShareUrl] = useState("");
   const [linkCopied, setLinkCopied] = useState(false);
   const [addingVia, setAddingVia] = useState(false);
+  const [formRestored, setFormRestored] = useState(false);
   const shouldScrollToJourneys = useRef(false);
+  const lastAppliedProfileUpdate = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!profile) return;
+    if (!hydrated || formRestored) return;
+
+    const draft = readPlannerDraft();
+    if (draft) {
+      setOriginStop(draft.originStop);
+      setDestinationStop(draft.destinationStop);
+      setViaStops(draft.viaStops);
+      setPreferredLines(draft.preferredLines);
+      setAvoidedLines(draft.avoidedLines);
+      setPreferredModes(draft.preferredModes);
+      setRoutePreference(draft.routePreference);
+      setWheelchairAccessible(draft.wheelchairAccessible);
+      setJourneySearchMode(draft.journeySearchMode);
+      setJourneyDate(draft.journeyDate);
+      setJourneyTime(draft.journeyTime);
+      setJourneySearch(draft.journeySearch);
+      setWalkingMinutes(draft.walkingMinutes);
+      setTransferBufferMinutes(draft.transferBufferMinutes);
+    } else if (profile) {
+      setOriginStop({ id: profile.originStop.id, name: profile.originStop.name, gid: profile.originStop.gid });
+      setDestinationStop(profile.destinationStop);
+      setViaStops(profile.viaStops);
+      setPreferredLines(profile.preferredLines.join(", "));
+      setAvoidedLines(profile.avoidedLines.join(", "));
+      setPreferredModes(profile.preferredModes);
+      setRoutePreference(profile.routePreference);
+      setWheelchairAccessible(profile.wheelchairAccessible);
+      setWalkingMinutes(profile.timingRule.walkingMinutes);
+      setTransferBufferMinutes(profile.timingRule.transferBufferMinutes);
+    }
+
+    lastAppliedProfileUpdate.current = profile?.updatedAt ?? null;
+    setAddingVia(false);
+    setFormRestored(true);
+  }, [formRestored, hydrated, profile]);
+
+  useEffect(() => {
+    if (!formRestored || !profile || lastAppliedProfileUpdate.current === profile.updatedAt) return;
     setOriginStop({ id: profile.originStop.id, name: profile.originStop.name, gid: profile.originStop.gid });
     setDestinationStop(profile.destinationStop);
     setViaStops(profile.viaStops);
@@ -639,7 +727,44 @@ export function Settings1() {
     setWalkingMinutes(profile.timingRule.walkingMinutes);
     setTransferBufferMinutes(profile.timingRule.transferBufferMinutes);
     setAddingVia(false);
-  }, [profile]);
+    lastAppliedProfileUpdate.current = profile.updatedAt;
+  }, [formRestored, profile]);
+
+  useEffect(() => {
+    if (!formRestored) return;
+    persistPlannerDraft({
+      originStop,
+      destinationStop,
+      viaStops,
+      preferredLines,
+      avoidedLines,
+      preferredModes,
+      routePreference,
+      wheelchairAccessible,
+      journeySearchMode,
+      journeyDate,
+      journeyTime,
+      journeySearch,
+      walkingMinutes,
+      transferBufferMinutes
+    });
+  }, [
+    avoidedLines,
+    destinationStop,
+    formRestored,
+    journeyDate,
+    journeySearch,
+    journeySearchMode,
+    journeyTime,
+    originStop,
+    preferredLines,
+    preferredModes,
+    routePreference,
+    transferBufferMinutes,
+    viaStops,
+    walkingMinutes,
+    wheelchairAccessible
+  ]);
 
   useEffect(() => {
     if (!profile || !shouldScrollToJourneys.current) return;
@@ -723,21 +848,21 @@ export function Settings1() {
       date: journeySearchMode === "now" ? "" : journeyDate,
       time: journeySearchMode === "now" ? "" : journeyTime
     });
-    setProfile(
-      newProfile({
-        current: profile,
-        originStop,
-        destinationStop,
-        viaStops,
-        preferredLines,
-        avoidedLines,
-        preferredModes,
-        routePreference,
-        wheelchairAccessible,
-        walkingMinutes,
-        transferBufferMinutes
-      })
-    );
+    const nextProfile = newProfile({
+      current: profile,
+      originStop,
+      destinationStop,
+      viaStops,
+      preferredLines,
+      avoidedLines,
+      preferredModes,
+      routePreference,
+      wheelchairAccessible,
+      walkingMinutes,
+      transferBufferMinutes
+    });
+    lastAppliedProfileUpdate.current = nextProfile.updatedAt;
+    setProfile(nextProfile);
   };
 
   const copyShareLink = async () => {
@@ -752,7 +877,7 @@ export function Settings1() {
   };
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6">
       {pendingShare ? (
         <Alert>
           <AlertTitle>Importera delad pendling?</AlertTitle>
@@ -788,37 +913,34 @@ export function Settings1() {
         </Alert>
       ) : null}
 
-      {/* 1. Answer first */}
-      <DecisionCard profile={profile} />
+      <div
+        id="planera"
+        role="tabpanel"
+        aria-labelledby="planner-tab"
+        className={`${view === "departures" ? "sm:hidden " : ""}grid scroll-mt-24 items-start gap-5 xl:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)]`}
+      >
+        {/* 1. Answer first */}
+        <DecisionCard profile={profile} />
 
-      {/* 2. Configure the trip that drives the answer */}
-      <section className="space-y-4" aria-labelledby="commute-heading">
-        <div>
-          <h2 id="commute-heading" className="text-xl font-semibold tracking-tight">
-            Din pendling
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Välj start, slutstation och eventuella via-hållplatser. Gå-nu och reseförslag bygger på det här.
-          </p>
-        </div>
-
-        <Card>
-          <CardHeader className="border-b">
+        {/* 2. Configure the trip that drives the answer */}
+        <section aria-labelledby="commute-heading">
+          <Card className="h-full border-0 shadow-md">
+          <CardHeader className="rounded-t-lg border-b bg-muted/40 p-5">
             <div className="flex items-center gap-3">
               <div className="grid size-10 place-items-center rounded-md bg-primary/10 text-primary">
                 <Settings2 className="size-5" aria-hidden="true" />
               </div>
               <div>
                 <CardTitle>
-                  <span className="text-lg">Ställ in resa</span>
+                  <h2 id="commute-heading" className="text-xl">Planera resa</h2>
                 </CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">Sparas bara i den här webbläsaren.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Från, till och när du vill åka.</p>
               </div>
             </div>
           </CardHeader>
           <form onSubmit={submit}>
-            <CardContent className="space-y-6 pt-6">
-              <div className="grid gap-6 lg:grid-cols-2">
+            <CardContent className="space-y-5 p-5">
+              <div className="grid gap-4 md:grid-cols-2">
                 <Field>
                   <FieldLabel>Startstation</FieldLabel>
                   {originStop ? (
@@ -834,6 +956,7 @@ export function Settings1() {
                     onSelect={setStartStation}
                     placeholder="Sök och välj startstation"
                     enableNearby
+                    storageKey="dinsl:planner-origin-search:v1"
                   />
                 </Field>
 
@@ -848,14 +971,18 @@ export function Settings1() {
                       />
                     </div>
                   ) : null}
-                  <SearchBox onSelect={setEndStation} placeholder="Sök och välj slutstation" />
+                  <SearchBox
+                    onSelect={setEndStation}
+                    placeholder="Sök och välj slutstation"
+                    storageKey="dinsl:planner-destination-search:v1"
+                  />
                   <p className="mt-2 text-xs text-muted-foreground">Hållplatsen du pendlar till.</p>
                 </Field>
               </div>
 
               <fieldset className="space-y-3">
                 <legend className="text-sm font-medium">När vill du resa?</legend>
-                <div className="grid gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-3 gap-2">
                   {([
                     ["now", "Res nu"],
                     ["departure", "Åk vid"],
@@ -870,7 +997,7 @@ export function Settings1() {
                         checked={journeySearchMode === mode}
                         onChange={() => selectJourneySearchMode(mode)}
                       />
-                      <span className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                      <span className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-2 text-center text-sm font-medium transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
                         {label}
                       </span>
                     </label>
@@ -902,11 +1029,14 @@ export function Settings1() {
                     </Field>
                   </div>
                 ) : null}
-                <p className="text-xs text-muted-foreground">
-                  Välj nu, önskad avgång eller när du senast vill vara framme.
-                </p>
               </fieldset>
 
+              <details className="group rounded-lg border bg-muted/20">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-primary marker:hidden">
+                  Fler reseval
+                  <ChevronDown className="size-4 transition-transform group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <div className="space-y-5 border-t p-4">
               <Field>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <FieldLabel>Via-hållplatser</FieldLabel>
@@ -931,7 +1061,11 @@ export function Settings1() {
                 ) : null}
                 {addingVia ? (
                   <div className="mt-2">
-                    <SearchBox onSelect={addViaStop} placeholder="Sök och välj via-hållplats" />
+                    <SearchBox
+                      onSelect={addViaStop}
+                      placeholder="Sök och välj via-hållplats"
+                      storageKey="dinsl:planner-via-search:v1"
+                    />
                   </div>
                 ) : null}
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -960,7 +1094,7 @@ export function Settings1() {
                 </div>
               </Field>
 
-              <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Field>
                   <FieldLabel htmlFor="route-preference">Resepreferens</FieldLabel>
                   <Select value={routePreference} onValueChange={(value) => setRoutePreference(value as RoutePreference)}>
@@ -1031,56 +1165,72 @@ export function Settings1() {
                   />
                 </Field>
               </div>
+                </div>
+              </details>
             </CardContent>
-            <CardFooter className="justify-end border-t pt-6">
-              <Button type="submit" disabled={!hydrated || !originStop || !destinationStop}>
+            <CardFooter className="justify-end border-t bg-muted/20 p-4">
+              <Button className="min-w-40" type="submit" disabled={!hydrated || !originStop || !destinationStop}>
                 <ArrowRight className="size-4" /> Reseförslag
               </Button>
             </CardFooter>
           </form>
         </Card>
       </section>
+      </div>
 
       {/* 3. Journey options for the saved trip */}
-      {profile ? <JourneySuggestions profile={profile} search={journeySearch} /> : null}
+      <div className={view === "departures" ? "sm:hidden" : undefined}>
+        {profile ? <JourneySuggestions profile={profile} search={journeySearch} /> : null}
+      </div>
 
       {/* 4. Discover / browse stops */}
-      <section className="space-y-4" aria-labelledby="stops-heading">
-        <div>
+      <section
+        id="hallplatser"
+        role="tabpanel"
+        className={`${view === "planner" ? "sm:hidden " : ""}scroll-mt-24 space-y-3`}
+        aria-labelledby="departures-tab"
+      >
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
           <h2 id="stops-heading" className="text-xl font-semibold tracking-tight">
             Hitta hållplats
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Sök avgångar, öppna favoriter eller hitta hållplatser nära dig.
           </p>
+          </div>
+          <p className="text-xs font-medium text-muted-foreground">Avgångar uppdateras i realtid</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Sök hållplats</CardTitle>
+        <div className="grid items-start gap-4 lg:grid-cols-3">
+          <Card className="h-full">
+          <CardHeader className="p-5">
+            <CardTitle className="text-lg">Sök hållplats</CardTitle>
             <p className="text-sm text-muted-foreground">Välj en station för realtidsavgångar.</p>
           </CardHeader>
-          <CardContent>
-            <SearchBox />
+          <CardContent className="px-5 pb-5">
+            <SearchBox storageKey={DEPARTURES_SEARCH_STORAGE_KEY} clearOnSelect={false} />
           </CardContent>
         </Card>
 
-        <div className="grid gap-6 md:grid-cols-2">
           <FavoriteStops />
           <NearbyStops />
         </div>
       </section>
 
       {/* 5. Secondary tools */}
-      <section className="space-y-4 border-t pt-8" aria-labelledby="tools-heading">
-        <div>
-          <h2 id="tools-heading" className="text-lg font-semibold tracking-tight">
-            Övrigt
-          </h2>
-          <p className="mt-1 text-sm text-muted-foreground">Verktyg som inte behövs för den dagliga pendlingen.</p>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
+      <section className={view === "planner" ? "sm:hidden" : undefined} aria-labelledby="tools-heading">
+        <details className="group overflow-hidden rounded-xl border bg-card">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 marker:hidden">
+            <span>
+              <span id="tools-heading" className="block font-semibold">Dela och läs mer</span>
+              <span className="mt-0.5 block text-sm font-normal text-muted-foreground">
+                QR-kod, delningslänk och förklaring.
+              </span>
+            </span>
+            <ChevronDown className="size-5 text-primary transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+        <div className="grid gap-4 border-t p-5 lg:grid-cols-2">
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -1152,6 +1302,7 @@ export function Settings1() {
             </CardContent>
           </Card>
         </div>
+        </details>
       </section>
     </div>
   );
