@@ -48,6 +48,66 @@ final result: passed
 
 ---
 
+## Planner mobile overflow QA — 2026-07-30
+
+**Comparison Target**
+
+- Source visual truth: `C:\Users\erik9\AppData\Local\Temp\codex-clipboard-31d416c8-6249-42de-a055-19cf32e9e203.png`.
+- Browser-rendered implementation: `D:\Code\DinSL\mobile-overflow-fixed.png`.
+- Side-by-side evidence: `D:\Code\DinSL\mobile-overflow-comparison.png`.
+- Source pixels: 1206 × 2622, normalized to 375 × 815 for comparison.
+- Implementation pixels: 375 × 812 at device pixel ratio 1.
+- Browser viewport override: 390 × 844; rendered document width: 375 CSS px.
+- State: dark-theme mobile planner with “Var framme vid” selected and native date/time fields visible.
+
+**Findings**
+
+- No actionable P0, P1, or P2 issue remains.
+- Date and time inputs now shrink within their field and card boundaries. Their measured right overflow is 0 px.
+- Travel-mode labels remain on one line at 375 CSS px. Below 360 px, the long arrival option moves to a full-width second row.
+- Shared field, input, textarea, and select primitives now use explicit shrink constraints, preventing intrinsic native-control widths from expanding mobile layouts.
+- Browser-native date/time formatting and icons differ between iOS Safari and Chromium by platform design; this is expected.
+- The source screenshot’s bottom `dinsl.se` pill is Safari browser chrome, not an app-owned overflow.
+
+**Required Fidelity Surfaces**
+
+- Fonts and typography: existing font family, weights, sizes, and hierarchy remain unchanged; broken option wrapping is removed.
+- Spacing and layout rhythm: existing gaps, card padding, radii, and vertical rhythm remain unchanged at normal phone widths; only sub-360 px mode layout gains a second row.
+- Colors and visual tokens: unchanged.
+- Image quality and assets: no image assets are involved.
+- Copy and content: unchanged; all Swedish labels remain complete and readable.
+
+**Interaction Evidence**
+
+- Selected “Var framme vid” and confirmed date/time fields render.
+- At 375 CSS px: document horizontal overflow is 0 px; no visible form control crosses viewport boundaries.
+- At 305 CSS px: document horizontal overflow is 0 px; date/time input overflow is 0 px; all three travel-mode labels remain single-line.
+- Search fields retain a 16 px mobile font size, preventing iOS focus zoom.
+- Browser console errors checked: none.
+
+**Comparison History**
+
+1. Initial source showed date/time controls extending past their containing card and “Var framme vid” wrapping awkwardly.
+2. Added `min-width: 0` and `max-width: 100%` constraints to shared form primitives and field wrappers.
+3. Rebalanced the three-column travel-mode selector and added a two-row fallback below 360 px.
+4. Post-fix browser evidence shows contained native controls, single-line labels, and zero horizontal overflow at both tested phone widths.
+
+**Focused Comparison**
+
+- Separate crops were unnecessary because the normalized side-by-side image renders the affected selector and date/time region at readable 1:1 CSS width.
+
+**Validation**
+
+- [x] TypeScript validation passes.
+- [x] `git diff --check` passes.
+- [x] React best-practices review finds no new structural, hook, accessibility, performance, or TypeScript issue.
+- [x] Browser console contains no errors.
+- [x] Final responsive result has no actionable P0/P1/P2 issue.
+
+final result: passed
+
+---
+
 ## Planner summary-card height QA — 2026-07-30
 
 **Comparison Target**

@@ -982,13 +982,18 @@ export function Settings1({ view = "planner" }: { view?: "planner" | "departures
 
               <fieldset className="space-y-3">
                 <legend className="text-sm font-medium">När vill du resa?</legend>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2 min-[360px]:grid-cols-[minmax(0,0.8fr)_minmax(0,0.8fr)_minmax(0,1.4fr)]">
                   {([
                     ["now", "Res nu"],
                     ["departure", "Åk vid"],
                     ["arrival", "Var framme vid"]
                   ] as const).map(([mode, label]) => (
-                    <label key={mode} className="cursor-pointer">
+                    <label
+                      key={mode}
+                      className={`min-w-0 cursor-pointer ${
+                        mode === "arrival" ? "col-span-2 min-[360px]:col-span-1" : ""
+                      }`}
+                    >
                       <input
                         className="peer sr-only"
                         type="radio"
@@ -997,7 +1002,7 @@ export function Settings1({ view = "planner" }: { view?: "planner" | "departures
                         checked={journeySearchMode === mode}
                         onChange={() => selectJourneySearchMode(mode)}
                       />
-                      <span className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-2 text-center text-sm font-medium transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                      <span className="flex h-10 min-w-0 items-center justify-center whitespace-nowrap rounded-md border border-input bg-background px-2 text-center text-sm font-medium transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
                         {label}
                       </span>
                     </label>
@@ -1209,7 +1214,7 @@ export function Settings1({ view = "planner" }: { view?: "planner" | "departures
             <p className="text-sm text-muted-foreground">Välj en station för realtidsavgångar.</p>
           </CardHeader>
           <CardContent className="px-5 pb-5">
-            <SearchBox storageKey={DEPARTURES_SEARCH_STORAGE_KEY} clearOnSelect={false} />
+            <SearchBox storageKey={DEPARTURES_SEARCH_STORAGE_KEY} />
           </CardContent>
         </Card>
 

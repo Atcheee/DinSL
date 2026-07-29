@@ -1,5 +1,34 @@
 import { expect, test } from "@playwright/test";
 
+test("closes departures search after selecting a stop", async ({ page }) => {
+  test.setTimeout(60_000);
+
+  await page.route("**/api/stops/search**", async (route) => {
+    await route.fulfill({
+      json: [{ id: "9700", name: "Roslags Näsby station", modes: ["TRAIN"] }]
+    });
+  });
+  await page.route("**/api/departures/*", async (route) => {
+    await route.fulfill({
+      json: {
+        site: { id: "9633", name: "Roslags Näsby" },
+        departures: [],
+        fetchedAt: new Date().toISOString(),
+        isStale: false
+      }
+    });
+  });
+
+  await page.goto("/#hallplatser");
+  const departuresSearch = page.locator('input[aria-label="Sök hållplats"]').nth(2);
+  await departuresSearch.fill("Roslags Näsby");
+  await page.getByRole("option", { name: /Roslags Näsby station/ }).click();
+
+  await expect(page).toHaveURL(/\/stop\/9700$/);
+  await expect(page.locator('input[aria-label="Sök hållplats"]')).toHaveValue("");
+  await expect(page.getByRole("option", { name: /Roslags Näsby station/ })).toHaveCount(0);
+});
+
 test("creates a commute profile and shares it via QR link", async ({ page }) => {
   const departureAt = new Date(Date.now() + 20 * 60_000).toISOString();
   let journeyRequestUrl = "";

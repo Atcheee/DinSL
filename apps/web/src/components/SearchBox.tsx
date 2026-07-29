@@ -77,11 +77,23 @@ export function SearchBox({
     enabled: enableNearby && nearbyMode && Boolean(coordinates)
   });
 
+  const clearQuery = () => {
+    setQuery("");
+    setDebouncedQuery("");
+    if (!storageKey) return;
+
+    try {
+      window.sessionStorage.removeItem(storageKey);
+    } catch {
+      // Keep selection working when storage is unavailable.
+    }
+  };
+
   const selectStop = (stop: Stop) => {
+    if (clearOnSelect) clearQuery();
+    setNearbyMode(false);
     if (onSelect) onSelect(stop);
     else router.push(`/stop/${stop.id}`);
-    if (clearOnSelect) setQuery("");
-    setNearbyMode(false);
   };
 
   const findNearby = () => {
@@ -110,7 +122,7 @@ export function SearchBox({
           placeholder={placeholder}
           aria-label="Sök hållplats"
           className={cn(
-            "flex h-11 min-w-0 flex-1 rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            "flex h-11 min-w-0 flex-1 rounded-md bg-transparent py-3 text-base outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
           )}
         />
         {enableNearby ? (

@@ -54,7 +54,6 @@ export default async function StopPage({ params }: StopPageProps) {
               placeholder="Sök hållplats eller station"
               enableNearby
               storageKey="dinsl:departures-search:v1"
-              clearOnSelect={false}
             />
           </div>
         </div>
