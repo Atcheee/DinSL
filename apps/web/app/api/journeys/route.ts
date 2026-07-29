@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ALL_TRANSPORT_MODES, MAX_VIA_STOPS, isSiteId, type RoutePreference, type TransportMode } from "@/domain/models";
+import {
+  ALL_TRANSPORT_MODES,
+  MAX_VIA_STOPS,
+  isSiteId,
+  type JourneySearchMode,
+  type RoutePreference,
+  type TransportMode
+} from "@/domain/models";
 import { errorResponse, handleRouteError } from "@/server/http";
 import { journeyPlannerClient } from "@/server/journeyPlanner";
 import { clientIpFromHeaders, rateLimit } from "@/server/rateLimit";
@@ -33,6 +40,41 @@ const parseViaIds = (raw: string | null): string[] | { error: string } => {
     return { error: "viaIds måste vara numeriska hållplats-id:n" };
   }
   return ids;
+};
+
+const isValidDate = (value: string) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year!, month! - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month! - 1 &&
+    date.getUTCDate() === day
+  );
+};
+
+const parseJourneyTime = (
+  modeValue: string | null,
+  dateValue: string | null,
+  timeValue: string | null
+):
+  | { searchMode: JourneySearchMode; searchDate?: string; searchTime?: string }
+  | { error: string } => {
+  const searchMode = modeValue ?? "now";
+  if (searchMode !== "now" && searchMode !== "departure" && searchMode !== "arrival") {
+    return { error: "Ogiltigt tidsval" };
+  }
+  if (searchMode === "now") return { searchMode };
+
+  const searchDate = dateValue?.trim() ?? "";
+  const searchTime = timeValue?.trim() ?? "";
+  if (!isValidDate(searchDate)) {
+    return { error: "searchDate måste vara ett giltigt datum i formatet ÅÅÅÅ-MM-DD" };
+  }
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(searchTime)) {
+    return { error: "searchTime måste vara en giltig tid i formatet TT:MM" };
+  }
+  return { searchMode, searchDate, searchTime };
 };
 
 // Always resolve from the sites catalog by site id. Client-provided GIDs may be
@@ -73,6 +115,14 @@ export async function GET(request: NextRequest) {
     }
 
     const viaIds = parsedVia.filter((id) => id !== originId && id !== destinationId);
+    const parsedTime = parseJourneyTime(
+      searchParams.get("searchMode"),
+      searchParams.get("searchDate"),
+      searchParams.get("searchTime")
+    );
+    if ("error" in parsedTime) {
+      return errorResponse(parsedTime.error, "BAD_REQUEST", 400);
+    }
 
     const [originGid, destinationGid, ...viaGids] = await Promise.all([
       resolveGid(originId),
@@ -87,7 +137,10 @@ export async function GET(request: NextRequest) {
       preferredModes: parseModes(searchParams.get("modes")),
       routePreference: parseRoutePreference(searchParams.get("routePreference")),
       wheelchairAccessible: searchParams.get("wheelchair") === "1" || searchParams.get("wheelchair") === "true",
-      maxChanges: searchParams.get("maxChanges") ? Number(searchParams.get("maxChanges")) : undefined
+      maxChanges: searchParams.get("maxChanges") ? Number(searchParams.get("maxChanges")) : undefined,
+      searchMode: parsedTime.searchMode,
+      searchDate: parsedTime.searchDate,
+      searchTime: parsedTime.searchTime
     });
 
     return NextResponse.json({

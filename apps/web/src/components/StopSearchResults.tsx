@@ -2,6 +2,7 @@
 
 import { MapPin } from "lucide-react";
 import type { NearbyStop, Stop } from "@/api/types";
+import { TRANSPORT_MODE_LABELS, type TransportMode } from "@/domain/models";
 import { Badge } from "@/components/ui/badge";
 import { CommandEmpty, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
 
@@ -16,6 +17,9 @@ type StopSearchResultsProps = {
 
 const hasDistance = (stop: Stop | NearbyStop): stop is NearbyStop =>
   "distanceMeters" in stop && typeof stop.distanceMeters === "number";
+
+const modeBadgeLabel = (modeName: string) =>
+  TRANSPORT_MODE_LABELS[modeName as TransportMode] ?? modeName;
 
 export function StopSearchResults({
   stops,
@@ -74,7 +78,7 @@ export function StopSearchResults({
                 ) : null}
                 {stop.modes?.slice(0, 2).map((modeName) => (
                   <Badge key={modeName} variant="secondary">
-                    {modeName}
+                    {modeBadgeLabel(modeName)}
                   </Badge>
                 ))}
                 <Badge variant="outline">{stop.id}</Badge>

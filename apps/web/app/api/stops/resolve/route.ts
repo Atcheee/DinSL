@@ -11,15 +11,15 @@ export async function GET(request: NextRequest) {
   try {
     const raw = request.nextUrl.searchParams.get("ids")?.trim() ?? "";
     if (!raw) {
-      return errorResponse("ids query parameter is required", "BAD_REQUEST", 400);
+      return errorResponse("Parameter ids krävs", "BAD_REQUEST", 400);
     }
 
     const ids = [...new Set(raw.split(",").map((value) => value.trim()).filter(Boolean))];
     if (ids.length === 0 || ids.length > MAX_IDS) {
-      return errorResponse(`Provide 1–${MAX_IDS} stop ids`, "BAD_REQUEST", 400);
+      return errorResponse(`Ange 1–${MAX_IDS} hållplats-id:n`, "BAD_REQUEST", 400);
     }
     if (!ids.every(isSiteId)) {
-      return errorResponse("All stop ids must be numeric", "INVALID_SITE_ID", 400);
+      return errorResponse("Alla hållplats-id:n måste vara numeriska", "INVALID_SITE_ID", 400);
     }
 
     const sites = await slClient.getSites();

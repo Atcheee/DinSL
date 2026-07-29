@@ -7,7 +7,9 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock3,
   Copy,
   Plus,
@@ -25,6 +27,7 @@ import { apiClient } from "@/api/client";
 import { FavoriteStops } from "@/components/FavoriteStops";
 import { NearbyStops } from "@/components/NearbyStops";
 import { SearchBox } from "@/components/SearchBox";
+import { TransitBadge } from "@/components/TransitBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,6 +48,7 @@ import {
   ROUTE_PREFERENCE_LABELS,
   TRANSPORT_MODE_LABELS,
   type CommuteProfile,
+  type JourneySearchMode,
   type ObservationType,
   type ProfileStop,
   type RoutePreference,
@@ -65,6 +69,87 @@ const toProfileStop = (stop: Stop): ProfileStop => ({
 });
 
 const parseLines = (value: string) => value.split(",").map((line) => line.trim()).filter(Boolean);
+
+type JourneySearchSelection = {
+  mode: JourneySearchMode;
+  date: string;
+  time: string;
+};
+
+const localDateValue = (date: Date) => {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+const localTimeValue = (date: Date) =>
+  `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+const defaultScheduledTime = () => {
+  const date = new Date(Date.now() + 30 * 60_000);
+  date.setSeconds(0, 0);
+  return { date: localDateValue(date), time: localTimeValue(date) };
+};
+
+const formatJourneySearch = (search: JourneySearchSelection) => {
+  if (search.mode === "now") return "Avgångar från nu";
+  const [year, month, day] = search.date.split("-").map(Number);
+  const date = new Date(year!, month! - 1, day, 12);
+  const formattedDate = new Intl.DateTimeFormat("sv-SE", {
+    day: "numeric",
+    month: "long"
+  }).format(date);
+  return search.mode === "arrival"
+    ? `Framme ${formattedDate} kl. ${search.time}`
+    : `Avgång ${formattedDate} kl. ${search.time}`;
+};
+
+const JOURNEY_PAGE_SIZE = 3;
+const STOCKHOLM_TIME_ZONE = "Europe/Stockholm";
+
+const journeyDepartureTime = (journey: JourneyOption) => journey.legs[0]?.departureTime;
+
+const journeyArrivalTime = (journey: JourneyOption) =>
+  journey.legs[journey.legs.length - 1]?.arrivalTime;
+
+const journeyTime = (journey: JourneyOption) => {
+  const raw = journeyDepartureTime(journey);
+  if (!raw) return Number.POSITIVE_INFINITY;
+  const value = Date.parse(raw);
+  return Number.isNaN(value) ? Number.POSITIVE_INFINITY : value;
+};
+
+const uniqueSortedJourneys = (journeys: JourneyOption[]) => {
+  const unique = new Map<string, JourneyOption>();
+  journeys.forEach((journey) => unique.set(journey.id, journey));
+  return [...unique.values()].sort((left, right) => journeyTime(left) - journeyTime(right));
+};
+
+const searchAtJourneyTime = (
+  value: string,
+  mode: Exclude<JourneySearchMode, "now">,
+  minuteOffset: number
+) => {
+  const date = new Date(value);
+  date.setUTCMinutes(date.getUTCMinutes() + minuteOffset, 0, 0);
+
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: STOCKHOLM_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? "";
+
+  return {
+    searchMode: mode,
+    searchDate: `${part("year")}-${part("month")}-${part("day")}`,
+    searchTime: `${part("hour")}:${part("minute")}`
+  };
+};
 
 const newProfile = (input: {
   current?: CommuteProfile | null;
@@ -201,9 +286,49 @@ function DecisionCard({ profile }: { profile: CommuteProfile | null }) {
   );
 }
 
-function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
+function JourneySuggestions({
+  profile,
+  search
+}: {
+  profile: CommuteProfile;
+  search: JourneySearchSelection;
+}) {
   const destination = isPlannerStop(profile.destinationStop) ? profile.destinationStop : null;
   const viaStops = useMemo(() => profile.viaStops.filter(isPlannerStop), [profile.viaStops]);
+  const [earlierJourneys, setEarlierJourneys] = useState<JourneyOption[]>([]);
+  const [laterJourneys, setLaterJourneys] = useState<JourneyOption[]>([]);
+  const [loadingDirection, setLoadingDirection] = useState<"earlier" | "later" | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const journeyRequest = {
+    originId: profile.originStop.id,
+    destinationId: destination?.id ?? "",
+    viaIds: viaStops.map((stop) => stop.id),
+    modes: profile.preferredModes,
+    routePreference: profile.routePreference,
+    wheelchairAccessible: profile.wheelchairAccessible,
+    maxChanges: profile.routePreference === "leastinterchange" ? 2 : undefined
+  } as const;
+
+  const journeyWindowKey = [
+    journeyRequest.originId,
+    journeyRequest.destinationId,
+    journeyRequest.viaIds.join(","),
+    journeyRequest.modes.join(","),
+    journeyRequest.routePreference,
+    journeyRequest.wheelchairAccessible,
+    journeyRequest.maxChanges,
+    profile.avoidedLines.join(","),
+    search.mode,
+    search.date,
+    search.time
+  ].join("|");
+
+  useEffect(() => {
+    setEarlierJourneys([]);
+    setLaterJourneys([]);
+    setLoadError(null);
+  }, [journeyWindowKey]);
 
   const journeys = useQuery({
     queryKey: [
@@ -214,30 +339,74 @@ function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
       profile.preferredModes.join(","),
       profile.routePreference,
       profile.wheelchairAccessible,
-      profile.avoidedLines.join(",")
+      profile.avoidedLines.join(","),
+      search.mode,
+      search.date,
+      search.time
     ],
     queryFn: () =>
       apiClient.journeys({
-        originId: profile.originStop.id,
+        ...journeyRequest,
         destinationId: destination!.id,
-        viaIds: viaStops.map((stop) => stop.id),
-        modes: profile.preferredModes,
-        routePreference: profile.routePreference,
-        wheelchairAccessible: profile.wheelchairAccessible,
-        maxChanges: profile.routePreference === "leastinterchange" ? 2 : undefined
+        searchMode: search.mode,
+        searchDate: search.mode === "now" ? undefined : search.date,
+        searchTime: search.mode === "now" ? undefined : search.time
       }),
     enabled: Boolean(destination),
     refetchInterval: 60_000,
     retry: 1
   });
 
+  const journeyWindow = useMemo(() => {
+    const initialJourneys = journeys.data?.journeys.slice(0, JOURNEY_PAGE_SIZE) ?? [];
+    return uniqueSortedJourneys([...earlierJourneys, ...initialJourneys, ...laterJourneys]);
+  }, [earlierJourneys, journeys.data, laterJourneys]);
+
   const filteredJourneys = useMemo(() => {
     const avoided = new Set(profile.avoidedLines.map((line) => line.trim()).filter(Boolean));
-    if (!journeys.data || avoided.size === 0) return journeys.data?.journeys ?? [];
-    return journeys.data.journeys.filter(
+    if (avoided.size === 0) return journeyWindow;
+    return journeyWindow.filter(
       (journey) => !journey.legs.some((leg) => leg.line && avoided.has(leg.line))
     );
-  }, [journeys.data, profile.avoidedLines]);
+  }, [journeyWindow, profile.avoidedLines]);
+
+  const loadJourneys = async (direction: "earlier" | "later") => {
+    const edgeJourney =
+      direction === "earlier" ? journeyWindow[0] : journeyWindow[journeyWindow.length - 1];
+    const edgeTime =
+      direction === "earlier"
+        ? journeyArrivalTime(edgeJourney!)
+        : journeyDepartureTime(edgeJourney!);
+    if (!edgeJourney || !edgeTime || !destination) return;
+
+    setLoadingDirection(direction);
+    setLoadError(null);
+    try {
+      const response = await apiClient.journeys({
+        ...journeyRequest,
+        destinationId: destination.id,
+        ...searchAtJourneyTime(
+          edgeTime,
+          direction === "earlier" ? "arrival" : "departure",
+          direction === "earlier" ? -1 : 1
+        )
+      });
+      const page = uniqueSortedJourneys(response.journeys);
+      if (direction === "earlier") {
+        setEarlierJourneys((current) =>
+          uniqueSortedJourneys([...current, ...page.slice(-JOURNEY_PAGE_SIZE)])
+        );
+      } else {
+        setLaterJourneys((current) =>
+          uniqueSortedJourneys([...current, ...page.slice(0, JOURNEY_PAGE_SIZE)])
+        );
+      }
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Kunde inte hämta fler reseförslag.");
+    } finally {
+      setLoadingDirection(null);
+    }
+  };
 
   if (!destination) {
     return (
@@ -271,6 +440,7 @@ function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
           {ROUTE_PREFERENCE_LABELS[profile.routePreference]}
           {profile.wheelchairAccessible ? " · rullstolspreferens" : ""}
           {viaLabel ? ` · ${viaLabel}` : ""}
+          {` · ${formatJourneySearch(search)}`}
         </p>
       </div>
 
@@ -285,9 +455,38 @@ function JourneySuggestions({ profile }: { profile: CommuteProfile }) {
                 : "Inga reseförslag hittades just nu. Prova andra hållplatser eller preferenser."}
             </p>
           ) : null}
+          {journeyWindow.length ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={loadingDirection !== null}
+              onClick={() => void loadJourneys("earlier")}
+            >
+              <ChevronUp className="size-4" aria-hidden="true" />
+              {loadingDirection === "earlier" ? "Hämtar tidigare resor..." : "Visa 3 tidigare resor"}
+            </Button>
+          ) : null}
           {filteredJourneys.map((journey) => (
             <JourneyOptionCard key={journey.id} journey={journey} preferWheelchair={profile.wheelchairAccessible} />
           ))}
+          {journeyWindow.length ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              disabled={loadingDirection !== null}
+              onClick={() => void loadJourneys("later")}
+            >
+              <ChevronDown className="size-4" aria-hidden="true" />
+              {loadingDirection === "later" ? "Hämtar senare resor..." : "Visa 3 senare resor"}
+            </Button>
+          ) : null}
+          {loadError ? (
+            <p className="text-center text-sm text-destructive" role="alert">
+              {loadError}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
     </section>
@@ -342,7 +541,7 @@ function JourneyOptionCard({
       <div className="mt-4 space-y-2">
         {journey.legs.map((leg, index) => (
           <div key={`${journey.id}-${index}`} className="flex flex-wrap items-center gap-2 text-sm">
-            <Badge variant="outline">{leg.line ? `${leg.mode ?? "Linje"} ${leg.line}` : leg.mode ?? "Gång"}</Badge>
+            <TransitBadge mode={leg.mode} line={leg.line} />
             <span className="text-muted-foreground">
               {leg.originName} → {leg.destinationName}
             </span>
@@ -411,6 +610,14 @@ export function Settings1() {
   const [preferredModes, setPreferredModes] = useState<TransportMode[]>([...ALL_TRANSPORT_MODES]);
   const [routePreference, setRoutePreference] = useState<RoutePreference>("leasttime");
   const [wheelchairAccessible, setWheelchairAccessible] = useState(false);
+  const [journeySearchMode, setJourneySearchMode] = useState<JourneySearchMode>("now");
+  const [journeyDate, setJourneyDate] = useState("");
+  const [journeyTime, setJourneyTime] = useState("");
+  const [journeySearch, setJourneySearch] = useState<JourneySearchSelection>({
+    mode: "now",
+    date: "",
+    time: ""
+  });
   const [walkingMinutes, setWalkingMinutes] = useState(7);
   const [transferBufferMinutes, setTransferBufferMinutes] = useState(3);
   const [shareQr, setShareQr] = useState<string>();
@@ -476,6 +683,15 @@ export function Settings1() {
     });
   };
 
+  const selectJourneySearchMode = (mode: JourneySearchMode) => {
+    setJourneySearchMode(mode);
+    if (mode !== "now" && (!journeyDate || !journeyTime)) {
+      const scheduled = defaultScheduledTime();
+      setJourneyDate(scheduled.date);
+      setJourneyTime(scheduled.time);
+    }
+  };
+
   const setEndStation = (stop: Stop) => {
     const next = toProfileStop(stop);
     setDestinationStop(next);
@@ -500,7 +716,13 @@ export function Settings1() {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (!originStop || !destinationStop) return;
+    if (journeySearchMode !== "now" && (!journeyDate || !journeyTime)) return;
     shouldScrollToJourneys.current = true;
+    setJourneySearch({
+      mode: journeySearchMode,
+      date: journeySearchMode === "now" ? "" : journeyDate,
+      time: journeySearchMode === "now" ? "" : journeyTime
+    });
     setProfile(
       newProfile({
         current: profile,
@@ -630,6 +852,60 @@ export function Settings1() {
                   <p className="mt-2 text-xs text-muted-foreground">Hållplatsen du pendlar till.</p>
                 </Field>
               </div>
+
+              <fieldset className="space-y-3">
+                <legend className="text-sm font-medium">När vill du resa?</legend>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {([
+                    ["now", "Res nu"],
+                    ["departure", "Åk vid"],
+                    ["arrival", "Var framme vid"]
+                  ] as const).map(([mode, label]) => (
+                    <label key={mode} className="cursor-pointer">
+                      <input
+                        className="peer sr-only"
+                        type="radio"
+                        name="journey-search-mode"
+                        value={mode}
+                        checked={journeySearchMode === mode}
+                        onChange={() => selectJourneySearchMode(mode)}
+                      />
+                      <span className="flex h-10 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2">
+                        {label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {journeySearchMode !== "now" ? (
+                  <div className="grid gap-4 rounded-md border bg-muted/30 p-4 sm:grid-cols-2">
+                    <Field>
+                      <FieldLabel htmlFor="journey-date">Dag</FieldLabel>
+                      <Input
+                        id="journey-date"
+                        type="date"
+                        required
+                        value={journeyDate}
+                        onChange={(event) => setJourneyDate(event.target.value)}
+                      />
+                    </Field>
+                    <Field>
+                      <FieldLabel htmlFor="journey-time">
+                        {journeySearchMode === "arrival" ? "Var framme vid" : "Åk vid"}
+                      </FieldLabel>
+                      <Input
+                        id="journey-time"
+                        type="time"
+                        required
+                        value={journeyTime}
+                        onChange={(event) => setJourneyTime(event.target.value)}
+                      />
+                    </Field>
+                  </div>
+                ) : null}
+                <p className="text-xs text-muted-foreground">
+                  Välj nu, önskad avgång eller när du senast vill vara framme.
+                </p>
+              </fieldset>
 
               <Field>
                 <div className="mb-2 flex items-center justify-between gap-3">
@@ -766,7 +1042,7 @@ export function Settings1() {
       </section>
 
       {/* 3. Journey options for the saved trip */}
-      {profile ? <JourneySuggestions profile={profile} /> : null}
+      {profile ? <JourneySuggestions profile={profile} search={journeySearch} /> : null}
 
       {/* 4. Discover / browse stops */}
       <section className="space-y-4" aria-labelledby="stops-heading">

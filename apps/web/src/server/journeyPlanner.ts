@@ -2,7 +2,12 @@ import { TtlCache } from "./cache";
 import { serverConfig } from "./config";
 import { UpstreamError } from "./slClient";
 import type { JourneyLeg, JourneyOption } from "@/api/types";
-import { MAX_VIA_STOPS, type RoutePreference, type TransportMode } from "@/domain/models";
+import {
+  MAX_VIA_STOPS,
+  type JourneySearchMode,
+  type RoutePreference,
+  type TransportMode
+} from "@/domain/models";
 
 type SlJourneyLocation = {
   name?: string;
@@ -36,6 +41,7 @@ type SlJourneyLeg = {
 };
 
 type SlJourney = {
+  tripId?: string;
   tripDuration?: number;
   interchanges?: number;
   legs?: SlJourneyLeg[];
@@ -72,9 +78,33 @@ const collectInfos = (leg: SlJourneyLeg) =>
     .flatMap((info) => info.infoLinks?.map((link) => link.title?.trim()).filter(Boolean) ?? [])
     .filter((title): title is string => Boolean(title));
 
+/** SL sometimes returns English product names (e.g. footpath) even with language=sv. */
+const PRODUCT_MODE_SV: Record<string, string> = {
+  footpath: "Gång",
+  walk: "Gång",
+  walking: "Gång",
+  "foot path": "Gång",
+  metro: "Tunnelbana",
+  subway: "Tunnelbana",
+  underground: "Tunnelbana",
+  bus: "Buss",
+  train: "Pendeltåg",
+  tram: "Spårvagn",
+  lightrail: "Spårvagn",
+  ship: "Båt",
+  ferry: "Båt",
+  boat: "Båt"
+};
+
+const localizeProductMode = (name?: string) => {
+  if (!name?.trim()) return undefined;
+  const mapped = PRODUCT_MODE_SV[name.trim().toLowerCase()];
+  return mapped ?? name.trim();
+};
+
 const normalizeLeg = (leg: SlJourneyLeg): JourneyLeg => {
   const infos = collectInfos(leg);
-  const productName = leg.transportation?.product?.name;
+  const productName = localizeProductMode(leg.transportation?.product?.name);
   const line = leg.transportation?.disassembledName ?? leg.transportation?.number;
 
   return {
@@ -91,6 +121,8 @@ const normalizeLeg = (leg: SlJourneyLeg): JourneyLeg => {
 
 const normalizeJourney = (journey: SlJourney, index: number): JourneyOption => {
   const legs = (journey.legs ?? []).map(normalizeLeg);
+  const firstDeparture = legs[0]?.departureTime ?? "unknown-departure";
+  const lastArrival = legs[legs.length - 1]?.arrivalTime ?? "unknown-arrival";
   const accessibilityNotes = legs
     .flatMap((item) => item.infos)
     .filter((note) => ACCESSIBILITY_HINT.test(note));
@@ -99,7 +131,9 @@ const normalizeJourney = (journey: SlJourney, index: number): JourneyOption => {
   );
 
   return {
-    id: `journey-${index}-${journey.tripDuration ?? 0}-${journey.interchanges ?? 0}`,
+    id:
+      journey.tripId?.trim() ||
+      `journey-${firstDeparture}-${lastArrival}-${index}-${journey.tripDuration ?? 0}-${journey.interchanges ?? 0}`,
     durationSeconds: journey.tripDuration ?? legs.reduce((sum, item) => sum + (item.durationSeconds ?? 0), 0),
     interchanges: journey.interchanges ?? Math.max(0, legs.length - 1),
     wheelchairFriendly: !hasBlockingNote,
@@ -119,16 +153,16 @@ const fetchJson = async <T>(url: string): Promise<T> => {
     });
 
     if (!response.ok) {
-      throw new UpstreamError(`SL Journey Planner returned ${response.status}`, 502, "SL_API_ERROR");
+      throw new UpstreamError(`SL reseplanerare svarade med status ${response.status}`, 502, "SL_API_ERROR");
     }
 
     return (await response.json()) as T;
   } catch (error) {
     if (error instanceof UpstreamError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
-      throw new UpstreamError("SL Journey Planner request timed out", 504, "SL_API_TIMEOUT");
+      throw new UpstreamError("Anropet till SL reseplanerare tog för lång tid", 504, "SL_API_TIMEOUT");
     }
-    throw new UpstreamError("Unable to reach SL Journey Planner");
+    throw new UpstreamError("Kunde inte nå SL reseplanerare");
   } finally {
     clearTimeout(timeout);
   }
@@ -143,9 +177,14 @@ export type PlanJourneyInput = {
   routePreference?: RoutePreference;
   wheelchairAccessible?: boolean;
   maxChanges?: number;
+  searchMode?: JourneySearchMode;
+  /** Local service date, YYYY-MM-DD. */
+  searchDate?: string;
+  /** Local service time, HH:mm. */
+  searchTime?: string;
 };
 
-const buildTripParams = (input: PlanJourneyInput & { viaGid?: string }) => {
+export const buildTripParams = (input: PlanJourneyInput & { viaGid?: string }) => {
   const modes = input.preferredModes?.length ? input.preferredModes : (Object.keys(MOT_BY_MODE) as TransportMode[]);
   const params = new URLSearchParams({
     type_origin: "any",
@@ -153,6 +192,7 @@ const buildTripParams = (input: PlanJourneyInput & { viaGid?: string }) => {
     type_destination: "any",
     name_destination: input.destinationGid,
     calc_number_of_trips: "3",
+    calc_one_direction: "true",
     route_type: input.routePreference ?? "leasttime",
     language: "sv",
     gen_c: "false"
@@ -165,6 +205,12 @@ const buildTripParams = (input: PlanJourneyInput & { viaGid?: string }) => {
 
   if (typeof input.maxChanges === "number") {
     params.set("max_changes", String(Math.max(0, Math.min(9, input.maxChanges))));
+  }
+
+  if (input.searchMode && input.searchMode !== "now" && input.searchDate && input.searchTime) {
+    params.set("itd_date", input.searchDate.replaceAll("-", ""));
+    params.set("itd_time", input.searchTime.replace(":", ""));
+    params.set("itd_trip_date_time_dep_arr", input.searchMode === "arrival" ? "arr" : "dep");
   }
 
   (Object.keys(MOT_BY_MODE) as TransportMode[]).forEach((mode) => {

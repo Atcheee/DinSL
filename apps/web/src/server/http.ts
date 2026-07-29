@@ -10,5 +10,5 @@ export const handleRouteError = (error: unknown) => {
   }
 
   console.error(error);
-  return errorResponse("Internal server error", "INTERNAL_ERROR", 500);
+  return errorResponse("Internt serverfel", "INTERNAL_ERROR", 500);
 };

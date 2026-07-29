@@ -24,7 +24,7 @@ const modeLabel = (mode?: string) => {
     case "TRAIN":
       return "Pendeltåg";
     case "TRAM":
-      return "Spårväg";
+      return "Spårvagn";
     case "SHIP":
       return "Båt";
     default:

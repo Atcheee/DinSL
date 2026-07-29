@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     const lon = parseCoordinate(request.nextUrl.searchParams.get("lon"));
 
     if (lat === undefined || lon === undefined || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-      return errorResponse("Valid lat and lon query parameters are required", "INVALID_COORDINATES", 400);
+      return errorResponse("Giltiga lat- och lon-parametrar krävs", "INVALID_COORDINATES", 400);
     }
 
     const sites = await slClient.getSites();

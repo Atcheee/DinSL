@@ -7,6 +7,8 @@ export type TransportMode = "METRO" | "BUS" | "TRAIN" | "TRAM" | "SHIP";
 
 export type RoutePreference = "leasttime" | "leastinterchange" | "leastwalking";
 
+export type JourneySearchMode = "now" | "departure" | "arrival";
+
 export type ProfileStop = {
   id: string;
   name: string;
@@ -66,7 +68,9 @@ export interface JourneyPlanner {
     originId: string;
     destinationId: string;
     viaIds?: string[];
-    departureTime?: string;
+    searchMode?: JourneySearchMode;
+    searchDate?: string;
+    searchTime?: string;
     preferredModes?: TransportMode[];
     routePreference?: RoutePreference;
     wheelchairAccessible?: boolean;

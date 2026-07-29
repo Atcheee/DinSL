@@ -8,7 +8,7 @@ export default function HomePage() {
       <section className="container flex max-w-6xl flex-col gap-8 py-6 sm:py-10">
         <div className="flex flex-col gap-3 border-b pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <Badge className="mb-3" variant="secondary">SL Commute Reliability</Badge>
+            <Badge className="mb-3" variant="secondary">SL pendlingssäkerhet</Badge>
             <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Hinner du nästa?</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
               Ett tydligt besked utifrån din station, gångtid och aktuella avgångar.

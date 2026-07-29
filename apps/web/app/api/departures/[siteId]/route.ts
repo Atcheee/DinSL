@@ -13,7 +13,7 @@ export async function GET(_request: Request, context: RouteContext) {
     const { siteId } = await context.params;
 
     if (!/^\d+$/.test(siteId)) {
-      return errorResponse("siteId must be numeric", "INVALID_SITE_ID", 400);
+      return errorResponse("siteId måste vara numeriskt", "INVALID_SITE_ID", 400);
     }
 
     const [site, departureResult] = await Promise.all([

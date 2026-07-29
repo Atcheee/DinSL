@@ -9,6 +9,7 @@ import {
   MapPinned
 } from "lucide-react";
 import type { JourneyOption } from "@/api/types";
+import { TransitBadge } from "@/components/TransitBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,9 +33,6 @@ const interchangeLabel = (count: number) => {
   if (count === 1) return "1 byte";
   return `${count} byten`;
 };
-
-const legBadgeLabel = (mode?: string, line?: string) =>
-  line ? `${mode ?? "Linje"} ${line}` : (mode ?? "Gång");
 
 export function JourneyDetail({ journeyId }: JourneyDetailProps) {
   const [journey, setJourney] = useState<JourneyOption | null | undefined>(undefined);
@@ -112,7 +110,7 @@ export function JourneyDetail({ journeyId }: JourneyDetailProps) {
                     aria-hidden="true"
                   />
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{legBadgeLabel(leg.mode, leg.line)}</Badge>
+                    <TransitBadge mode={leg.mode} line={leg.line} />
                     {dep && arr ? (
                       <span className="text-sm text-muted-foreground">
                         {dep} – {arr}

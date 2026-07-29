@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("creates a commute profile and shares it via QR link", async ({ page }) => {
   const departureAt = new Date(Date.now() + 20 * 60_000).toISOString();
+  let journeyRequestUrl = "";
 
   await page.route("**/api/stops/search**", async (route) => {
     await route.fulfill({
@@ -31,6 +32,7 @@ test("creates a commute profile and shares it via QR link", async ({ page }) => 
     });
   });
   await page.route("**/api/journeys**", async (route) => {
+    journeyRequestUrl = route.request().url();
     await route.fulfill({
       json: {
         journeys: [
@@ -64,10 +66,18 @@ test("creates a commute profile and shares it via QR link", async ({ page }) => 
   await page.getByRole("option", { name: /Slussen/ }).click();
   await page.locator('input[aria-label="Sök hållplats"]').nth(1).fill("T-Centralen");
   await page.getByRole("option", { name: /T-Centralen/ }).click();
+  await page.getByText("Var framme vid", { exact: true }).first().click();
+  await page.getByLabel("Dag").fill("2026-08-03");
+  await page.locator("#journey-time").fill("08:15");
   await page.getByLabel("Föredragna linjer").fill("13");
   await page.getByRole("button", { name: "Reseförslag" }).click();
   await expect(page.getByRole("heading", { name: "Reseförslag" })).toBeVisible();
   await expect(page.getByText("Hämtar reseförslag...").or(page.getByText(/min ·/))).toBeVisible();
+  const journeyRequest = new URL(journeyRequestUrl);
+  expect(journeyRequest.searchParams.get("searchMode")).toBe("arrival");
+  expect(journeyRequest.searchParams.get("searchDate")).toBe("2026-08-03");
+  expect(journeyRequest.searchParams.get("searchTime")).toBe("08:15");
+  await expect(page.getByText(/Framme 3 augusti kl\. 08:15/)).toBeVisible();
 
   await page.getByRole("link", { name: /Visa detaljer för resa/ }).click();
   await expect(page).toHaveURL(/\/resa\/j1/);

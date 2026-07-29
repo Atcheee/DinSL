@@ -1,5 +1,5 @@
 import type { ApiErrorResponse, DeparturesResponse, JourneysResponse, NearbyStop, Stop } from "./types";
-import type { RoutePreference, TransportMode } from "@/domain/models";
+import type { JourneySearchMode, RoutePreference, TransportMode } from "@/domain/models";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -30,6 +30,9 @@ export type JourneyQuery = {
   routePreference?: RoutePreference;
   wheelchairAccessible?: boolean;
   maxChanges?: number;
+  searchMode?: JourneySearchMode;
+  searchDate?: string;
+  searchTime?: string;
 };
 
 export const apiClient = {
@@ -49,6 +52,11 @@ export const apiClient = {
     if (query.routePreference) params.set("routePreference", query.routePreference);
     if (query.wheelchairAccessible) params.set("wheelchair", "1");
     if (typeof query.maxChanges === "number") params.set("maxChanges", String(query.maxChanges));
+    if (query.searchMode && query.searchMode !== "now") {
+      params.set("searchMode", query.searchMode);
+      if (query.searchDate) params.set("searchDate", query.searchDate);
+      if (query.searchTime) params.set("searchTime", query.searchTime);
+    }
     return request<JourneysResponse>(`/api/journeys?${params.toString()}`);
   }
 };

@@ -27,7 +27,7 @@ const fetchJson = async <T>(url: string, options?: { preserveLargeIntegers?: boo
     });
 
     if (!response.ok) {
-      throw new UpstreamError(`SL API returned ${response.status}`, 502, "SL_API_ERROR");
+      throw new UpstreamError(`SL-API svarade med status ${response.status}`, 502, "SL_API_ERROR");
     }
 
     if (options?.preserveLargeIntegers) {
@@ -38,9 +38,9 @@ const fetchJson = async <T>(url: string, options?: { preserveLargeIntegers?: boo
   } catch (error) {
     if (error instanceof UpstreamError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
-      throw new UpstreamError("SL API request timed out", 504, "SL_API_TIMEOUT");
+      throw new UpstreamError("SL-API-anropet tog för lång tid", 504, "SL_API_TIMEOUT");
     }
-    throw new UpstreamError("Unable to reach SL API");
+    throw new UpstreamError("Kunde inte nå SL-API");
   } finally {
     clearTimeout(timeout);
   }
@@ -69,6 +69,22 @@ const normalizeSite = (site: SlSite): Stop | undefined => {
   };
 };
 
+const STATUS_SV: Record<string, string> = {
+  CANCELLED: "Inställd",
+  CANCELED: "Inställd",
+  LATE: "Försenad",
+  DELAYED: "Försenad",
+  EARLY: "Tidig",
+  SKIPPED: "Inställd",
+  REPLACED: "Ersatt"
+};
+
+const localizeStatus = (value?: string) => {
+  if (!value?.trim()) return undefined;
+  const mapped = STATUS_SV[value.trim().toUpperCase()];
+  return mapped ?? value.trim();
+};
+
 const normalizeDeparture = (departure: SlRawDeparture, index: number): Departure => {
   const line = departure.line?.designation ?? String(departure.line?.id ?? "");
   const destination = departure.via
@@ -77,6 +93,9 @@ const normalizeDeparture = (departure: SlRawDeparture, index: number): Departure
   const state = departure.state ?? departure.journey?.state;
   const deviation = departure.deviations?.find((item) => item.message);
   const isCancelled = state?.toUpperCase().includes("CANCEL") ?? false;
+  const rawStatus = isCancelled
+    ? "Inställd"
+    : deviation?.message ?? localizeStatus(departure.journey?.prediction_state) ?? localizeStatus(state);
 
   return {
     id: [
@@ -96,7 +115,7 @@ const normalizeDeparture = (departure: SlRawDeparture, index: number): Departure
     scheduledTime: departure.scheduled,
     displayTime: departure.display,
     platform: departure.stop_point?.designation,
-    status: isCancelled ? "Inställd" : deviation?.message ?? departure.journey?.prediction_state ?? state,
+    status: rawStatus,
     isCancelled
   };
 };
